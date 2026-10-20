@@ -1,9 +1,17 @@
 import { Routes, Route, Navigate } from "react-router";
-import { SessionGate, RootRedirect, GuestOnly, RequireAuth, RequireActiveAccess } from "./components/RouteGuards.jsx";
+import {
+  SessionGate,
+  RootRedirect,
+  GuestOnly,
+  RequireAuth,
+  RequireActiveAccess,
+  RequireSuperAdmin,
+} from "./components/RouteGuards.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import WaitingPage from "./pages/WaitingPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import SuperAdminPage from "./pages/SuperAdminPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
@@ -29,6 +37,11 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Route>
+
+        <Route path="/super-admin" element={<RequireSuperAdmin />}>
+          <Route index element={<SuperAdminPage />} />
+          <Route path="*" element={<Navigate to="/super-admin" replace />} />
         </Route>
       </Route>
 

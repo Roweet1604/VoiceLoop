@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { createLimiter } from "./middleware/rateLimit.js";
 import healthRouter from "./routes/health.js";
 import { createAuthRouter } from "./routes/auth.js";
+import superAdminRouter from "./routes/superAdmin.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -33,6 +34,7 @@ export function createApp({ limits = {} } = {}) {
       registerLimiter: createLimiter({ windowMs: ONE_HOUR, limit: limits.register ?? 5 }),
     })
   );
+  app.use("/api/super-admin", superAdminRouter);
 
   app.use(notFound);
   app.use(errorHandler);

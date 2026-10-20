@@ -33,6 +33,13 @@ export async function requireAuth(req, res, next) {
   next();
 }
 
+// Must run after requireAuth. Only the Super Admin may continue; everyone
+// else, including active owners, gets 403.
+export function requireSuperAdmin(req, res, next) {
+  if (req.user.role !== "superadmin") throw AppError.forbidden();
+  next();
+}
+
 // Must run after requireAuth. Lets through only owners whose organization is
 // currently active (not pending, rejected, suspended, or past its expiry).
 // The Super Admin has no organization and is not subject to access periods.

@@ -20,8 +20,9 @@ VoiceLoop/
 │   │   ├── app.js              createApp(): middleware, routes, error handling (no listen)
 │   │   ├── index.js            Startup: checks config, connects MongoDB, listens
 │   │   ├── config/db.js        MongoDB connection via Mongoose
-│   │   ├── models/             Mongoose models (User, Organization)
+│   │   ├── models/             Mongoose models (User, Organization, AuditLog)
 │   │   ├── routes/             One router per resource, mounted under /api
+│   │   ├── services/           Business logic shared by routes (accountAccess)
 │   │   ├── middleware/         notFound, errorHandler, validate, rateLimit, auth
 │   │   ├── validators/         Plain validator functions used with validate()
 │   │   └── utils/              AppError, session (JWT + cookie helpers)
@@ -92,6 +93,33 @@ node scripts/create-superadmin.js --email admin@example.com --password "<strong 
 
 The script uses `MONGODB_URI` from `server/.env` and refuses to modify an existing account. The password is visible in shell history, so clear that afterwards or run the command from a shell that doesn't record history.
 
+### Super Admin API
+
+All routes under `/api/super-admin` run `requireAuth` then `requireSuperAdmin`: logged-out callers get `401`, owners get `403 FORBIDDEN`.
+
+| Method and path | Body | Allowed from (effective status) | Result |
+|---|---|---|---|
+| `GET /accounts` | query: `status` (`all` or a status), `q`, `expiring=true`, `page`, `limit` (max 100) | | `{ accounts, page, limit, total, totalPages, counts }` |
+| `POST /accounts/:id/approve` | one of `{ days: 7 \| 30 \| 90 }`, `{ endDate }`, `{ noExpiry: true }` | pending, rejected | active, starts now |
+| `POST /accounts/:id/reject` | `{ reason? }` | pending | rejected |
+| `POST /accounts/:id/suspend` | `{ reason }` (required) | active | suspended |
+| `POST /accounts/:id/reactivate` | optional term as for approve | suspended | active; keeps the old end date unless a term is given, and requires one if the old end date has passed |
+| `POST /accounts/:id/extend` | `{ days: 1–3650 }` or `{ endDate }` | active (with an end date), expired | active; days are added to the current end date, or to today if it has passed; a new `endDate` must be later than the current one |
+
+- `endDate` is an ISO 8601 timestamp, must be in the future and within 10 years. The admin UI sends the end of the chosen day in the admin's time zone.
+- A change that doesn't fit the current status (e.g. approving an active account) returns `409 INVALID_TRANSITION` with an explanation. Unknown ids return `404`.
+- List entries contain only `id`, `name`, `owner { id, name, email }`, `requestedAt`, `accessStatus` (effective), `accessStartsAt`, `accessExpiresAt` and `daysRemaining` (only for active accounts with an end date). `counts` gives totals per status plus `expiringSoon` (active, ending within 7 days).
+- Search matches business name, owner name and owner email, case-insensitive; the input is escaped, so it's always a literal match.
+
+### Audit trail
+
+Every access change writes, in one MongoDB transaction:
+
+- an `accessHistory` entry on the organization: `action`, `fromStatus`, `toStatus`, `accessExpiresAt`, `by` (admin user id), `reason`, `at`;
+- an `AuditLog` document: `actor`, `actorEmail`, `action` (e.g. `access.approve`), `targetType`, `targetId`, `createdAt`, and a `context` with statuses, dates and the reason. No password data is ever written there.
+
+Refused actions write nothing. Transactions need a replica set: MongoDB Atlas (including the free tier) has one, but a standalone local `mongod` doesn't, so access changes would fail there.
+
 ### Response shapes
 
 Success responses are route-specific JSON, e.g. `GET /api/health` returns `{ "status": "ok" }`.
@@ -102,7 +130,7 @@ Every error uses one shape:
 { "error": { "message": "Route not found: GET /api/nope", "code": "NOT_FOUND" } }
 ```
 
-Validation failures add a `details` object keyed by field. Error codes currently in use: `BAD_REQUEST`, `UNAUTHORIZED`, `SESSION_EXPIRED`, `INVALID_CREDENTIALS`, `FORBIDDEN`, `ACCESS_PENDING`, `ACCESS_REJECTED`, `ACCESS_SUSPENDED`, `ACCESS_EXPIRED`, `NO_ORGANIZATION`, `NOT_FOUND`, `EMAIL_IN_USE`, `PAYLOAD_TOO_LARGE`, `INVALID_JSON`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+Validation failures add a `details` object keyed by field. Error codes currently in use: `BAD_REQUEST`, `UNAUTHORIZED`, `SESSION_EXPIRED`, `INVALID_CREDENTIALS`, `FORBIDDEN`, `ACCESS_PENDING`, `ACCESS_REJECTED`, `ACCESS_SUSPENDED`, `ACCESS_EXPIRED`, `NO_ORGANIZATION`, `NOT_FOUND`, `EMAIL_IN_USE`, `INVALID_TRANSITION`, `PAYLOAD_TOO_LARGE`, `INVALID_JSON`, `RATE_LIMITED`, `INTERNAL_ERROR`.
 
 Stack traces are never sent to the client. They are logged on the server. When `NODE_ENV=production`, unexpected (500) errors also replace their message with `"Internal server error"`.
 

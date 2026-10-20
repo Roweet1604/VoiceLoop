@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
-import { canUseApp, homePathFor } from "../lib/access.js";
+import { canUseApp, homePathFor, isSuperAdmin } from "../lib/access.js";
 import { FullPageLoader, FullPageError } from "./FullPageStatus.jsx";
 
 // Wraps every route that depends on the session. Nothing below it renders
@@ -29,13 +29,23 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
-// For /app/*: logged in AND allowed to use the app. Pending, rejected,
-// suspended and expired accounts are sent to the waiting page instead.
+// For /app/*: an owner whose access is active. Pending, rejected, suspended
+// and expired owners go to the waiting page; the Super Admin to /super-admin.
 export function RequireActiveAccess() {
   const { session } = useAuth();
   const location = useLocation();
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  if (!canUseApp(session)) return <Navigate to="/waiting-for-approval" replace />;
+  if (!canUseApp(session)) return <Navigate to={homePathFor(session)} replace />;
+  return <Outlet />;
+}
+
+// For /super-admin/*. The API refuses non-admins regardless; this just keeps
+// owners out of a screen that would only show errors.
+export function RequireSuperAdmin() {
+  const { session } = useAuth();
+  const location = useLocation();
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!isSuperAdmin(session)) return <Navigate to={homePathFor(session)} replace />;
   return <Outlet />;
 }
 

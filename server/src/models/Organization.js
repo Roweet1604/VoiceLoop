@@ -34,15 +34,20 @@ const BLOCKED = {
   expired: { code: "ACCESS_EXPIRED", message: "Your access period has ended" },
 };
 
-// The effective access state at `now`. Expiry is evaluated on every call
-// instead of by a scheduled job, so an "active" organization past its
-// accessExpiresAt is reported as expired without anything being written.
+// The effective status at `now`. Expiry is evaluated on every call instead
+// of by a scheduled job, so an "active" organization past its accessExpiresAt
+// counts as expired without anything being written. Works on documents and
+// plain objects. The Super Admin account list mirrors this rule in a MongoDB
+// expression (routes/superAdmin.js); keep the two in sync.
+export function effectiveAccessStatus({ accessStatus, accessStartsAt, accessExpiresAt }, now = new Date()) {
+  if (accessStatus !== "active") return accessStatus;
+  if (accessExpiresAt && accessExpiresAt <= now) return "expired";
+  if (accessStartsAt && accessStartsAt > now) return "pending";
+  return "active";
+}
+
 organizationSchema.methods.accessState = function accessState(now = new Date()) {
-  let status = this.accessStatus;
-  if (status === "active") {
-    if (this.accessExpiresAt && this.accessExpiresAt <= now) status = "expired";
-    else if (this.accessStartsAt && this.accessStartsAt > now) status = "pending";
-  }
+  const status = effectiveAccessStatus(this, now);
   return status === "active" ? { status, allowed: true } : { status, allowed: false, ...BLOCKED[status] };
 };
 

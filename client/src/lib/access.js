@@ -1,12 +1,20 @@
-// Mirrors requireActiveAccess on the server: the Super Admin, or an owner
-// whose organization is currently active, may use /app. The server enforces
-// this on every request; the client only uses it to pick a page.
+// Which area of the app a session belongs in. The server enforces access on
+// every request; the client only uses this to pick a page.
+//
+//   Super Admin             -> /super-admin
+//   owner, active access    -> /app/dashboard
+//   owner, anything else    -> /waiting-for-approval
+
+export function isSuperAdmin(session) {
+  return session?.user.role === "superadmin";
+}
+
+// The business dashboard (/app/*) is for owners whose access is active.
 export function canUseApp(session) {
-  if (!session) return false;
-  if (session.user.role === "superadmin") return true;
-  return session.organization?.accessStatus === "active";
+  return !isSuperAdmin(session) && session?.organization?.accessStatus === "active";
 }
 
 export function homePathFor(session) {
+  if (isSuperAdmin(session)) return "/super-admin";
   return canUseApp(session) ? "/app/dashboard" : "/waiting-for-approval";
 }

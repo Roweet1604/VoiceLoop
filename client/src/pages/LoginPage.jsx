@@ -7,7 +7,7 @@ import Alert from "../components/ui/Alert.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useAuthForm } from "../hooks/useAuthForm.js";
 import { validateLogin } from "../lib/validation.js";
-import { canUseApp, homePathFor } from "../lib/access.js";
+import { homePathFor } from "../lib/access.js";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -20,8 +20,11 @@ export default function LoginPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     const session = await login({ email: values.email.trim(), password: values.password });
-    // Return to the page that sent them here, but only if they're allowed in.
-    const destination = canUseApp(session) && from?.startsWith("/app") ? from : homePathFor(session);
+    // Return to the page that sent them here if it's in the area this account
+    // belongs to (/app or /super-admin); otherwise go to that area's home.
+    const home = homePathFor(session);
+    const area = `/${home.split("/")[1]}`;
+    const destination = from === area || from?.startsWith(`${area}/`) ? from : home;
     navigate(destination, { replace: true });
   });
 

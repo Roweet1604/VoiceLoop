@@ -6,10 +6,8 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useLogout } from "../hooks/useLogout.js";
-import { canUseApp } from "../lib/access.js";
-
-const formatDate = (value) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
-const formatTime = (value) => new Intl.DateTimeFormat(undefined, { timeStyle: "short" }).format(value);
+import { homePathFor } from "../lib/access.js";
+import { formatDate, formatTime } from "../lib/format.js";
 
 // What to tell the user for each blocked access status. `business` is the
 // organization name.
@@ -65,8 +63,10 @@ export default function WaitingPage() {
   const [checkError, setCheckError] = useState(null);
   const [lastChecked, setLastChecked] = useState(null);
 
-  // Approved (or approved while this page was open): nothing to wait for.
-  if (canUseApp(session)) return <Navigate to="/app/dashboard" replace />;
+  // Approved (or approved while this page was open), or the Super Admin:
+  // nothing to wait for.
+  const home = homePathFor(session);
+  if (home !== "/waiting-for-approval") return <Navigate to={home} replace />;
 
   const { user, organization } = session;
   const content = (organization && STATUS_CONTENT[organization.accessStatus]) || NO_ORGANIZATION;
