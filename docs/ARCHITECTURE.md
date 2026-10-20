@@ -136,10 +136,12 @@ It then writes one AuditLog entry: `action: "account_deleted"`, `actor`, `target
 
 ## Businesses
 
-Each organization has at most one `Business` (unique index on `organizationId`): `name`, `locationName`, `welcomeMessage`, `googleReviewUrl`, `logoUrl` (not editable yet, always empty), `publicSlug`, `isActive`, and the landing-screen wording `reviewCardTitle` (≤60), `reviewCardText` (≤160), `reviewCardButton` (≤30), `feedbackCardTitle` (≤60), `feedbackCardText` (≤160), `feedbackCardButton` (≤30).
+Each organization has at most one `Business` (unique index on `organizationId`): `name`, `locationName`, `welcomeMessage`, `googleReviewUrl`, `logoUrl` (not editable yet, always empty), `publicSlug`, `isActive`, and the landing-card text `reviewCardText` and `feedbackCardText` (≤160 each; empty = default).
 
-- **Landing screen.** When `googleReviewUrl` is an https link, `/f/...` first shows two equal-weight cards: "Share your experience on Google" (opens the link in a new tab) and "Send private feedback to the team" (opens the form, with a Back button). Both are shown to every customer; neither depends on what the customer picks or writes, and there are no incentives. Without a review link, the form shows directly. The review button also stays below the form and on the success screen.
-- **Wording.** Empty wording fields mean "use the neutral default" (`client/src/lib/landingWording.js`). Owners edit them under Settings → Customer page wording, with a live preview.
+- **Landing screen.** When `googleReviewUrl` is an https link, `/f/...` first shows two equal-weight cards, always both, to every customer. The **Google Review** card opens the link in a new tab. The **Complaint/Personal Feedback** card opens the form, which has a Back button. Without a review link, the form shows directly. The review button ("Yes! Why not") also stays below the form and on the success screen.
+- **Wording.** Card titles and buttons are fixed in `client/src/lib/landingWording.js`: "Google Review" / "Yes! Why not" and "Complaint/Personal Feedback" / "Suggest". Owners can only change the two card texts (Settings → Customer page wording). The defaults are "Liked the service, Wanna compliment" and "Yes i have complaint or suggestion".
+- **Product decision on record (Phase 3D-2).** This fixed wording was chosen by the product owner. It ties the Google card to compliments and the private card to complaints, which conflicts with CLAUDE.md §9 ("Never filter customers based on sentiment"). It's also close to the "review gating" Google's review policies prohibit, which can lead to removed reviews or a restricted listing for the business. Revisit before onboarding real businesses, and update §9 if the rule is meant to change.
+- **Removed fields.** `reviewCardTitle`, `reviewCardButton`, `feedbackCardTitle` and `feedbackCardButton` existed briefly in Phase 3D. They're no longer in the schema, accepted or returned. `node scripts/unset-removed-wording-fields.js` removes any stored values (only those four fields; safe to repeat).
 
 - **Public slug.** Generated once from the name: accents removed, lowercase, non-alphanumerics become hyphens, max 50 characters (`"Corner Café & Co."` → `corner-cafe-co`). If taken, a 5-character random suffix is added (`corner-cafe-co-k3x9q`). Names with no Latin letters or digits get `business` (plus a suffix if needed). The field is immutable, so renaming never breaks printed links or QR codes.
 - **Stored as entered.** Text is not HTML-escaped in the database. The client renders it as plain text (React escapes it; nothing uses `dangerouslySetInnerHTML`).
@@ -206,7 +208,7 @@ A business is publicly available only when it's active and its organization's ac
 | `GET /f/:slug` and `GET /f/:slug/:code` | `{ business, linkCode }`. The link's name is not exposed. |
 | `POST /f/:slug/submit` | `201 { submitted: true, submittedAt }` |
 
-`business` is always just `{ slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl, reviewCardTitle, reviewCardText, reviewCardButton, feedbackCardTitle, feedbackCardText, feedbackCardButton }`.
+`business` is always just `{ slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl, reviewCardText, feedbackCardText }`.
 
 **Submitting feedback.** The body takes `category`, `message`, optional `customerName`, `customerEmail` and `linkCode`, plus a required `idempotencyKey` (16–100 characters of `A–Z a–z 0–9 _ -`, e.g. `crypto.randomUUID()`). Other fields are ignored. Status fields and notes always start at their defaults.
 

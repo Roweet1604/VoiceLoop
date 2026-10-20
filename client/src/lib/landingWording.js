@@ -1,25 +1,32 @@
-// Wording for the two cards on the public landing screen. The business can
-// override each piece in Settings; an empty value means the default below.
+// Wording for the two cards on the public landing screen. Titles and buttons
+// are fixed; the business can only change each card's text in Settings, and
+// an empty text means the default below.
 //
-// The defaults are deliberately neutral: both options are offered to every
-// customer, whatever their experience, and neither is framed as the "happy"
-// or "unhappy" path.
-export const DEFAULT_WORDING = {
-  reviewCardTitle: "Share your experience on Google",
-  reviewCardText: "Post a public review that other customers can read. Google opens in a new tab.",
-  reviewCardButton: "Write a Google review",
-  feedbackCardTitle: "Send private feedback to the team",
-  feedbackCardText: "Your message goes only to the team. It's anonymous unless you add your name or email.",
-  feedbackCardButton: "Write feedback",
+// Note: this wording was chosen by the product owner. It associates the
+// Google card with compliments and the private card with complaints, which
+// conflicts with CLAUDE.md §9 ("never filter customers based on sentiment")
+// and Google's review policies. See docs/ARCHITECTURE.md → Businesses.
+export const FIXED_WORDING = {
+  reviewCardTitle: "Google Review",
+  reviewCardButton: "Yes! Why not",
+  feedbackCardTitle: "Complaint/Personal Feedback",
+  feedbackCardButton: "Suggest",
 };
 
-export const WORDING_FIELDS = Object.keys(DEFAULT_WORDING);
+export const DEFAULT_TEXT = {
+  reviewCardText: "Liked the service, Wanna compliment",
+  feedbackCardText: "Yes i have complaint or suggestion",
+};
 
-// The business's wording with defaults filled in for empty fields.
+export const TEXT_FIELDS = Object.keys(DEFAULT_TEXT);
+
+// Everything the cards show: fixed titles and buttons, plus the business's
+// text with defaults filled in for empty values.
 export function resolveWording(source) {
-  return Object.fromEntries(
-    WORDING_FIELDS.map((field) => [field, source?.[field]?.trim() || DEFAULT_WORDING[field]])
-  );
+  return {
+    ...FIXED_WORDING,
+    ...Object.fromEntries(TEXT_FIELDS.map((field) => [field, source?.[field]?.trim() || DEFAULT_TEXT[field]])),
+  };
 }
 
 // The review card is only offered for a real https link.

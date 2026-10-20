@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import bcrypt from "bcrypt";
+import mongoose from "mongoose";
 import { createApp } from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { Organization } from "../src/models/Organization.js";
@@ -296,16 +297,12 @@ describe("tenant isolation", () => {
 
 describe("GET /api/public/business/:slug", () => {
   const PUBLIC_KEYS = [
-    "feedbackCardButton",
     "feedbackCardText",
-    "feedbackCardTitle",
     "googleReviewUrl",
     "locationName",
     "logoUrl",
     "name",
-    "reviewCardButton",
     "reviewCardText",
-    "reviewCardTitle",
     "slug",
     "welcomeMessage",
   ];
@@ -337,12 +334,8 @@ describe("GET /api/public/business/:slug", () => {
       welcomeMessage: "Tell us how we did",
       logoUrl: "",
       googleReviewUrl: "https://g.page/r/abc/review",
-      reviewCardTitle: "",
       reviewCardText: "",
-      reviewCardButton: "",
-      feedbackCardTitle: "",
       feedbackCardText: "",
-      feedbackCardButton: "",
     });
     const text = JSON.stringify(res.body);
     expect(text).not.toContain(o.orgId);
@@ -393,101 +386,117 @@ describe("GET /api/public/business/:slug", () => {
   });
 });
 
-describe("landing-screen wording", () => {
-  const WORDING = {
-    reviewCardTitle: "Tell others about your visit",
-    reviewCardText: "Post a public review on Google.",
-    reviewCardButton: "Review on Google",
-    feedbackCardTitle: "Message the team",
-    feedbackCardText: "Only the team reads this.",
-    feedbackCardButton: "Write to us",
-  };
-  const LIMITS = { reviewCardTitle: 60, reviewCardText: 160, reviewCardButton: 30, feedbackCardTitle: 60, feedbackCardText: 160, feedbackCardButton: 30 };
+describe("landing-card text", () => {
+  const TEXTS = { reviewCardText: "Post a public review on Google.", feedbackCardText: "Only the team reads this." };
+  const REMOVED = ["reviewCardTitle", "reviewCardButton", "feedbackCardTitle", "feedbackCardButton"];
 
   it("defaults to empty, saves on create and update (trimmed), and can be cleared", async () => {
     const a = await owner("a@a.test");
-    const created = await a.post({ name: "Corner Cafe", reviewCardTitle: "  Share it  " });
+    const created = await a.post({ name: "Corner Cafe", reviewCardText: "  Tell others  " });
     expect(created.status).toBe(201);
-    expect(created.body.business).toMatchObject({ reviewCardTitle: "Share it", feedbackCardTitle: "", reviewCardText: "" });
+    expect(created.body.business).toMatchObject({ reviewCardText: "Tell others", feedbackCardText: "" });
 
-    const updated = await a.patch(WORDING);
-    expect(updated.status).toBe(200);
-    expect(updated.body.business).toMatchObject(WORDING);
-
-    const cleared = await a.patch({ reviewCardTitle: "", feedbackCardButton: "" });
-    expect(cleared.body.business).toMatchObject({ ...WORDING, reviewCardTitle: "", feedbackCardButton: "" });
-    expect(await Business.findOne()).toMatchObject({ reviewCardTitle: "", feedbackCardTitle: "Message the team" });
+    expect((await a.patch(TEXTS)).body.business).toMatchObject(TEXTS);
+    const cleared = await a.patch({ reviewCardText: "" });
+    expect(cleared.body.business).toMatchObject({ reviewCardText: "", feedbackCardText: TEXTS.feedbackCardText });
   });
 
-  it("accepts each field at its limit and rejects one character more", async () => {
+  it("accepts each text at 160 characters and rejects 161", async () => {
     const a = await owner("a@a.test");
     await a.post({ name: "Corner Cafe" });
-    for (const [field, max] of Object.entries(LIMITS)) {
-      expect((await a.patch({ [field]: "x".repeat(max) })).status, `${field} at ${max}`).toBe(200);
-      const tooLong = await a.patch({ [field]: "y".repeat(max + 1) });
-      expect(tooLong.status, `${field} at ${max + 1}`).toBe(400);
+    for (const field of ["reviewCardText", "feedbackCardText"]) {
+      expect((await a.patch({ [field]: "x".repeat(160) })).status, field).toBe(200);
+      const tooLong = await a.patch({ [field]: "y".repeat(161) });
+      expect(tooLong.status, field).toBe(400);
       expect(tooLong.body.error.details).toHaveProperty(field);
     }
     expect((await a.post({ name: "Second", feedbackCardText: "z".repeat(161) })).status).toBe(400);
   });
 
-  it.each([[{ reviewCardTitle: { $ne: "" } }], [{ feedbackCardText: ["a", "b"] }], [{ reviewCardButton: 5 }], [{ feedbackCardTitle: null }]])(
+  it.each([[{ reviewCardText: { $ne: "" } }], [{ feedbackCardText: ["a", "b"] }], [{ reviewCardText: 5 }], [{ feedbackCardText: null }]])(
     "rejects non-string values %j",
     async (body) => {
       const a = await owner("a@a.test");
       await a.post({ name: "Corner Cafe" });
       expect((await a.patch(body)).status).toBe(400);
-      expect((await Business.findOne()).reviewCardTitle).toBe("");
+      expect(await Business.findOne()).toMatchObject({ reviewCardText: "", feedbackCardText: "" });
     }
   );
 
-  it("ignores unknown wording-like fields", async () => {
+  it("doesn't accept or return the removed title and button fields", async () => {
     const a = await owner("a@a.test");
-    await a.post({ name: "Corner Cafe" });
-    const res = await a.patch({ reviewCardTitle: "Hi there", reviewCardColor: "red", reviewIncentive: "10% off" });
-    expect(res.status).toBe(200);
-    expect(res.body.business).not.toHaveProperty("reviewCardColor");
-    expect(res.body.business).not.toHaveProperty("reviewIncentive");
-    const stored = (await Business.findOne()).toObject();
-    expect(stored).not.toHaveProperty("reviewCardColor");
-    expect(stored).not.toHaveProperty("reviewIncentive");
+    const removedValues = Object.fromEntries(REMOVED.map((f) => [f, `custom ${f}`]));
+
+    const created = await a.post({ name: "Corner Cafe", ...removedValues });
+    expect(created.status).toBe(201);
+    const onlyRemoved = await a.patch(removedValues);
+    expect(onlyRemoved.status).toBe(400); // no editable field in the body
+
+    const stored = await Business.collection.findOne({});
+    for (const field of REMOVED) {
+      expect(stored, field).not.toHaveProperty(field);
+      expect(created.body.business, field).not.toHaveProperty(field);
+    }
+  });
+
+  it("ignores values left in removed fields by earlier versions", async () => {
+    const a = await owner("a@a.test");
+    const biz = (await a.post({ name: "Corner Cafe", reviewCardText: "Kept text" })).body.business;
+    // Simulate data saved before the fields were removed.
+    await Business.collection.updateOne(
+      { _id: new mongoose.Types.ObjectId(biz.id) },
+      { $set: Object.fromEntries(REMOVED.map((f) => [f, `legacy ${f}`])) }
+    );
+
+    const responses = [
+      await a.get(),
+      await a.patch({ feedbackCardText: "Updated" }),
+      await getPublic(biz.publicSlug),
+      await request(app).get(`/api/public/f/${biz.publicSlug}`),
+    ];
+    for (const res of responses) {
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toContain("legacy");
+    }
+    expect(responses[3].body.business).toMatchObject({ reviewCardText: "Kept text", feedbackCardText: "Updated" });
   });
 
   it("is returned by both public routes, with still no private fields", async () => {
     const a = await owner("a@a.test");
-    const biz = (await a.post({ name: "Corner Cafe", googleReviewUrl: "https://g.page/r/x/review", ...WORDING })).body.business;
+    const biz = (await a.post({ name: "Corner Cafe", googleReviewUrl: "https://g.page/r/x/review", ...TEXTS })).body.business;
 
     for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
       const res = await request(app).get(path);
       expect(res.status, path).toBe(200);
-      expect(res.body.business, path).toMatchObject(WORDING);
+      expect(res.body.business, path).toMatchObject(TEXTS);
       const text = JSON.stringify(res.body);
       expect(text).not.toContain(a.orgId);
       expect(text).not.toContain(biz.id);
-      expect(text).not.toMatch(/organization|owner|email|"_?id"|password|isActive|publicSlug/i);
+      expect(text).not.toMatch(/organization|owner|email|"_?id"|password|isActive|publicSlug|CardTitle|CardButton/i);
     }
   });
 
-  it("owner A can't change owner B's wording", async () => {
+  it("owner A can't change owner B's text", async () => {
     const a = await owner("a@a.test");
     const b = await owner("b@b.test");
     await a.post({ name: "Alpha Cafe" });
-    const bBiz = (await b.post({ name: "Beta Salon", reviewCardTitle: "B's own title" })).body.business;
+    const bBiz = (await b.post({ name: "Beta Salon", reviewCardText: "B's own text" })).body.business;
 
-    const res = await a.patch({ reviewCardTitle: "Hijacked", id: bBiz.id, _id: bBiz.id, organizationId: b.orgId });
+    const res = await a.patch({ reviewCardText: "Hijacked", id: bBiz.id, _id: bBiz.id, organizationId: b.orgId });
     expect(res.status).toBe(200);
     expect(res.body.business.name).toBe("Alpha Cafe");
-    expect((await Business.findById(bBiz.id)).reviewCardTitle).toBe("B's own title");
-    expect((await a.patch({ reviewCardTitle: "Hijacked" }, `/${bBiz.id}`)).status).toBe(404);
-    expect((await getPublic(bBiz.publicSlug)).body.business.reviewCardTitle).toBe("B's own title");
+    expect((await Business.findById(bBiz.id)).reviewCardText).toBe("B's own text");
+    expect((await a.patch({ reviewCardText: "Hijacked" }, `/${bBiz.id}`)).status).toBe(404);
+    expect((await getPublic(bBiz.publicSlug)).body.business.reviewCardText).toBe("B's own text");
   });
 
   it("still returns the generic 404 for inactive or suspended businesses", async () => {
     const a = await owner("a@a.test");
-    const biz = (await a.post({ name: "Corner Cafe", ...WORDING })).body.business;
+    const biz = (await a.post({ name: "Corner Cafe", ...TEXTS })).body.business;
+    const paths = [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`];
 
     await Business.updateOne({ _id: biz.id }, { isActive: false });
-    for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
+    for (const path of paths) {
       const res = await request(app).get(path);
       expect(res.status, path).toBe(404);
       expect(res.body).toEqual({ error: { message: "This feedback page isn't available", code: "NOT_FOUND" } });
@@ -495,10 +504,10 @@ describe("landing-screen wording", () => {
 
     await Business.updateOne({ _id: biz.id }, { isActive: true });
     await Organization.updateOne({ _id: a.orgId }, { accessStatus: "suspended" });
-    for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
+    for (const path of paths) {
       const res = await request(app).get(path);
       expect(res.status, path).toBe(404);
-      expect(JSON.stringify(res.body)).not.toContain("Message the team");
+      expect(JSON.stringify(res.body)).not.toContain("Only the team");
     }
   });
 });

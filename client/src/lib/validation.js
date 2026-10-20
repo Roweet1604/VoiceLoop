@@ -71,14 +71,10 @@ function checkBusinessName(value) {
 const optionalMax = (value, label, max) =>
   value.trim().length > max ? `${label} must be at most ${max} characters` : null;
 
-// Landing-screen wording limits (mirrors WORDING_FIELDS on the server).
+// Landing-card text limits (mirrors WORDING_FIELDS on the server).
 export const WORDING_LIMITS = {
-  reviewCardTitle: 60,
   reviewCardText: 160,
-  reviewCardButton: 30,
-  feedbackCardTitle: 60,
   feedbackCardText: 160,
-  feedbackCardButton: 30,
 };
 
 // Validates whichever business fields are present in `values`.

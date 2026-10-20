@@ -2,14 +2,11 @@
 // the fields listed in BUSINESS_FIELDS, so anything else in the body
 // (organizationId, publicSlug, isActive, logoUrl, _id, ...) is ignored.
 
-// Landing-screen card wording; empty means "use the default".
+// Landing-screen card text; empty means "use the default". Card titles and
+// buttons are fixed in the client and can't be set.
 export const WORDING_FIELDS = {
-  reviewCardTitle: { label: "Review card title", max: 60 },
   reviewCardText: { label: "Review card text", max: 160 },
-  reviewCardButton: { label: "Review card button", max: 30 },
-  feedbackCardTitle: { label: "Feedback card title", max: 60 },
   feedbackCardText: { label: "Feedback card text", max: 160 },
-  feedbackCardButton: { label: "Feedback card button", max: 30 },
 };
 
 export const BUSINESS_FIELDS = ["name", "locationName", "welcomeMessage", "googleReviewUrl", ...Object.keys(WORDING_FIELDS)];

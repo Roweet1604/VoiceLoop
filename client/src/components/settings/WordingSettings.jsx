@@ -9,32 +9,19 @@ import { useBusiness, useHandleAccessError } from "../../context/BusinessContext
 import { useForm } from "../../hooks/useForm.js";
 import { api } from "../../lib/api.js";
 import { validateBusiness, WORDING_LIMITS } from "../../lib/validation.js";
-import { DEFAULT_WORDING, WORDING_FIELDS, resolveWording, isHttpsUrl } from "../../lib/landingWording.js";
+import { DEFAULT_TEXT, FIXED_WORDING, TEXT_FIELDS, resolveWording, isHttpsUrl } from "../../lib/landingWording.js";
 
-const toValues = (business) => Object.fromEntries(WORDING_FIELDS.map((f) => [f, business[f] ?? ""]));
-const EMPTY = Object.fromEntries(WORDING_FIELDS.map((f) => [f, ""]));
+const toValues = (business) => Object.fromEntries(TEXT_FIELDS.map((f) => [f, business[f] ?? ""]));
+const EMPTY = Object.fromEntries(TEXT_FIELDS.map((f) => [f, ""]));
 
-const CARDS = [
-  {
-    heading: "Google review card",
-    fields: [
-      ["reviewCardTitle", "Title"],
-      ["reviewCardText", "Text", true],
-      ["reviewCardButton", "Button label"],
-    ],
-  },
-  {
-    heading: "Private feedback card",
-    fields: [
-      ["feedbackCardTitle", "Title"],
-      ["feedbackCardText", "Text", true],
-      ["feedbackCardButton", "Button label"],
-    ],
-  },
+const FIELDS = [
+  ["reviewCardText", `"${FIXED_WORDING.reviewCardTitle}" card text`],
+  ["feedbackCardText", `"${FIXED_WORDING.feedbackCardTitle}" card text`],
 ];
 
-// "Customer page wording": edits the two landing-screen cards. Empty fields
-// fall back to the neutral defaults, which are shown as placeholders.
+// "Customer page wording": edits the text of the two landing-screen cards.
+// Titles and buttons are fixed. Empty fields fall back to the defaults, which
+// are shown as placeholders.
 export default function WordingSettings() {
   const { business, setBusiness } = useBusiness();
   const handleAccessError = useHandleAccessError();
@@ -42,10 +29,10 @@ export default function WordingSettings() {
   const [saved, setSaved] = useState(false);
 
   const changes = Object.fromEntries(
-    WORDING_FIELDS.filter((f) => values[f].trim() !== (business[f] ?? "")).map((f) => [f, values[f].trim()])
+    TEXT_FIELDS.filter((f) => values[f].trim() !== (business[f] ?? "")).map((f) => [f, values[f].trim()])
   );
   const dirty = Object.keys(changes).length > 0;
-  const allDefault = WORDING_FIELDS.every((f) => !values[f].trim());
+  const allDefault = TEXT_FIELDS.every((f) => !values[f].trim());
 
   const onSubmit = handleSubmit(async () => {
     setSaved(false);
@@ -75,16 +62,15 @@ export default function WordingSettings() {
     <Card className="mt-4">
       <h2 className="text-sm font-semibold text-ink">Customer page wording</h2>
       <p className="mt-1 text-sm text-ink-muted">
-        When a Google review link is set, customers first choose between two equal options. Leave a field empty to
-        use the default shown in grey.
+        When a Google review link is set, customers first choose between two cards. You can change the text on each
+        card; titles and buttons are fixed. Leave a field empty to use the default shown in grey.
       </p>
 
       <div className="mt-4 flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <p>
-          Keep the review card neutral. Both cards are shown to every customer, whatever their experience, so don't
-          address only happy customers or offer anything in return for a review. Google's review policies don't allow
-          either.
+          The review card text should not be addressed only to happy customers, and must not offer rewards for a
+          review. Google's review policies don't allow either.
         </p>
       </div>
 
@@ -92,25 +78,21 @@ export default function WordingSettings() {
         {formError && <Alert>{formError}</Alert>}
         {saved && <Alert tone="success">Wording saved.</Alert>}
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {CARDS.map((card) => (
-            <fieldset key={card.heading} className="space-y-3" disabled={submitting}>
-              <legend className="text-sm font-medium text-ink">{card.heading}</legend>
-              {card.fields.map(([name, label, multiline]) => (
-                <TextField
-                  key={name}
-                  label={label}
-                  multiline={multiline}
-                  rows={multiline ? 3 : undefined}
-                  maxLength={WORDING_LIMITS[name]}
-                  placeholder={DEFAULT_WORDING[name]}
-                  hint={`${values[name].trim().length} / ${WORDING_LIMITS[name]}`}
-                  {...field(name)}
-                />
-              ))}
-            </fieldset>
+        <fieldset className="grid gap-4 md:grid-cols-2" disabled={submitting}>
+          <legend className="sr-only">Card text</legend>
+          {FIELDS.map(([name, label]) => (
+            <TextField
+              key={name}
+              label={label}
+              multiline
+              rows={3}
+              maxLength={WORDING_LIMITS[name]}
+              placeholder={DEFAULT_TEXT[name]}
+              hint={`${values[name].trim().length} / ${WORDING_LIMITS[name]}`}
+              {...field(name)}
+            />
           ))}
-        </div>
+        </fieldset>
 
         <figure>
           <figcaption className="text-xs font-medium text-ink-muted">Preview</figcaption>

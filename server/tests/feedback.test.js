@@ -224,12 +224,8 @@ describe("GET /api/public/f/:slug/:code?", () => {
         welcomeMessage: "",
         logoUrl: "",
         googleReviewUrl: "",
-        reviewCardTitle: "",
         reviewCardText: "",
-        reviewCardButton: "",
-        feedbackCardTitle: "",
         feedbackCardText: "",
-        feedbackCardButton: "",
       },
       linkCode: null,
     });
