@@ -52,7 +52,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <>
+    <div className="max-w-3xl">
       <h1 className="text-lg font-semibold text-ink">Settings</h1>
       <p className="mt-1 text-sm text-ink-muted">What customers see on your feedback page.</p>
 
@@ -113,6 +113,6 @@ export default function SettingsPage() {
           <PublicLink url={publicFeedbackUrl(business.publicSlug)} />
         </div>
       </Card>
-    </>
+    </div>
   );
 }

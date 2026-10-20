@@ -53,7 +53,7 @@ export default function LinksPage() {
   }
 
   return (
-    <>
+    <div className="max-w-3xl">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-lg font-semibold text-ink">Links and QR codes</h1>
@@ -124,7 +124,7 @@ export default function LinksPage() {
       {dialog?.type === "toggle" && (
         <ToggleLinkDialog link={dialog.link} onClose={() => setDialog(null)} onSaved={handleSaved} />
       )}
-    </>
+    </div>
   );
 }
 

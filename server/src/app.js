@@ -8,6 +8,7 @@ import { createAuthRouter } from "./routes/auth.js";
 import superAdminRouter from "./routes/superAdmin.js";
 import businessRouter from "./routes/business.js";
 import linksRouter from "./routes/links.js";
+import inboxRouter from "./routes/inbox.js";
 import { createPublicRouter } from "./routes/public.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -42,6 +43,7 @@ export function createApp({ limits = {} } = {}) {
   app.use("/api/super-admin", superAdminRouter);
   app.use("/api/business", businessRouter);
   app.use("/api/links", linksRouter);
+  app.use("/api/feedback", inboxRouter);
   // Public endpoints get their own, tighter per-IP limit on top of the API-wide
   // one, and feedback submission a much stricter one again.
   app.use(

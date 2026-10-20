@@ -172,6 +172,25 @@ Same guards as `/api/business` (`requireAuth`, `requireActiveAccess`, `requireOw
 
 `Feedback` stores one submission: `businessId`, `organizationId`, `linkId`, `category` (`general`, `complaint`, `suggestion`, `compliment`, `other`), `message` (1–2000), optional `customerName` (≤80) and `customerEmail`, `submissionType` (`text`), `reviewStatus` (`new`/`reviewed`), `complaintStatus` (`open` for complaints, otherwise null; later `in_progress`/`resolved`), `internalNotes`, `submittedAt` and `idempotencyKey`. Indexes: `{ businessId, submittedAt }`, unique `{ businessId, idempotencyKey }`, `{ linkId }`.
 
+### Owner inbox (`/api/feedback`)
+
+Same guards as `/api/business`. Every query is scoped to the business of the logged-in user's organization, so another tenant's feedback id is a `404`, and ids or filters pointing at another tenant match nothing. Responses contain no organization or business ids.
+
+| Method and path | Input | Result |
+|---|---|---|
+| `GET /` | `page`, `limit` (≤50), `q`, `category`, `reviewStatus`, `complaintStatus`, `linkId`, `from`, `to` (ISO dates) | `{ feedback: [{ id, category, excerpt, customerName, reviewStatus, complaintStatus, submittedAt, link }], page, limit, total, totalPages }`, newest first |
+| `GET /summary` | `tz` (IANA zone, default UTC) | `total`, `new`, `openComplaints`, `inProgress`, `resolved`, `volume` (last 30 local days), `byCategory`, `byLink`, `unlinkedCount` |
+| `GET /:id` | | Full feedback, with `internalNotes` and `statusHistory` (author names resolved) |
+| `PATCH /:id/review` | `reviewStatus`: `new` or `reviewed` | Setting the current value again changes nothing |
+| `PATCH /:id/complaint-status` | `status`: `open`, `in_progress`, `resolved` or `reopen`; `resolutionSummary` (required for `resolved`, ≤1000) | Complaints only (`409 NOT_A_COMPLAINT`). Allowed: open→in progress/resolved, in progress→open/resolved, resolved→reopen (open). Anything else is `409 INVALID_TRANSITION` |
+| `POST /:id/notes` | `text` (1–1000) | `201`, with the note's author and time |
+
+- **Search** matches message text case-insensitively, and the input is escaped, so `$5.00 (` matches literally. It's a scan within one business; fine at this scale, but a text index would be needed for very large inboxes.
+- **History:** review and complaint changes are recorded in `statusHistory` (`field`, `from`, `to`, `by`, `at`, and `resolutionSummary` when resolving).
+- **Concurrent edits:** updates only apply if the status is still what was read; otherwise the response is `409 CONFLICT`.
+- **Viewing changes nothing.** Opening a feedback item never marks it reviewed or changes its status.
+- **Never public:** notes, history and statuses are embedded in the feedback document and never returned by any `/api/public` route.
+
 ## Public API (`/api/public`)
 
 No session needed. Every route is limited to 60 requests per IP per minute, on top of the API-wide limit. Responses are sent with `Cache-Control: no-store`.
@@ -200,7 +219,7 @@ A business is publicly available only when it's active and its organization's ac
 | `/signup`, `/login` | logged-out only | Auth forms |
 | `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |
 | `/app/setup` | active owner without a business | Create the business |
-| `/app/dashboard`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`); links page has QR codes |
+| `/app/dashboard`, `/app/feedback`, `/app/feedback/:feedbackId`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
 | `/f/:slug`, `/f/:slug/:code` | none (public, outside the session gate) | Customer feedback form |
 | `/super-admin` | Super Admin | Account approvals |
 | `/health` | none | API reachability check |

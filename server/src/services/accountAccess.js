@@ -5,6 +5,7 @@ import { User } from "../models/User.js";
 import { Business } from "../models/Business.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { AppError } from "../utils/AppError.js";
+import { escapeRegex } from "../utils/regex.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const EXPIRING_SOON_DAYS = 7;
@@ -170,7 +171,6 @@ export async function changeAccess({ organizationId, action, body, actor }) {
 // ---------------------------------------------------------------------------
 // Listing
 
-const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // MongoDB version of effectiveAccessStatus(); keep the two in sync.
 function effectiveStatusExpression(now) {

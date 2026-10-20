@@ -61,10 +61,13 @@ async function tenant(label) {
       .send({ ...body, idempotencyKey: crypto.randomUUID() });
     expect(res.status).toBe(201);
   }
-  await Feedback.updateOne(
-    { businessId: business.id, category: "complaint" },
-    { $push: { internalNotes: { authorId: admin._id, text: `Private note for ${label}` } } }
-  );
+  // Notes, review and complaint history through the inbox API, so deletion is
+  // checked against the data it really holds (all embedded in Feedback).
+  const complaint = await Feedback.findOne({ businessId: business.id, category: "complaint" });
+  const inbox = (method, path, body) => request(app)[method](`/api/feedback/${complaint._id}${path}`).set("Cookie", cookie).send(body);
+  expect((await inbox("post", "/notes", { text: `Private note for ${label}` })).status).toBe(201);
+  expect((await inbox("patch", "/review", { reviewStatus: "reviewed" })).status).toBe(200);
+  expect((await inbox("patch", "/complaint-status", { status: "resolved", resolutionSummary: `Refunded ${label}` })).status).toBe(200);
 
   return { orgId, cookie, email, business, link, slug: business.publicSlug };
 }
@@ -189,6 +192,8 @@ describe("deleting an account", () => {
     expect(await User.exists({ email: a.email })).toBeNull();
     expect(await Feedback.exists({ message: /at a$/ })).toBeNull();
     expect(await Feedback.exists({ "internalNotes.text": "Private note for a" })).toBeNull();
+    expect(await Feedback.exists({ "statusHistory.resolutionSummary": "Refunded a" })).toBeNull();
+    expect(await Feedback.exists({ "statusHistory.resolutionSummary": "Refunded b" })).toBeTruthy();
 
     // B: every document exactly as before, including its audit entries.
     expect(await snapshot(b.orgId)).toEqual(bBefore);

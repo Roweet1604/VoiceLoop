@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import { LayoutDashboard, QrCode, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Inbox, QrCode, Settings, LogOut } from "lucide-react";
 import { Wordmark } from "./AuthLayout.jsx";
 import Button from "./ui/Button.jsx";
 import Alert from "./ui/Alert.jsx";
@@ -9,6 +9,7 @@ import { useLogout } from "../hooks/useLogout.js";
 
 const NAV = [
   { to: "/app/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { to: "/app/feedback", label: "Feedback", Icon: Inbox },
   { to: "/app/links", label: "Links & QR codes", Icon: QrCode },
   { to: "/app/settings", label: "Settings", Icon: Settings },
 ];
@@ -72,7 +73,7 @@ export default function AppShell() {
       </header>
 
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-5xl">
           {error && <Alert className="mb-4">{error}</Alert>}
           <Outlet />
         </div>
