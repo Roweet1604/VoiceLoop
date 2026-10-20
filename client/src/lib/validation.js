@@ -84,6 +84,38 @@ export function validateBusiness(values) {
   });
 }
 
+// Mirrors server/src/validators/feedback.js.
+export const FEEDBACK_MESSAGE_MAX = 2000;
+export const FEEDBACK_NAME_MAX = 80;
+
+export function validateFeedback(values) {
+  const message = values.message.trim();
+  return collect({
+    message: !message
+      ? "Please write your feedback"
+      : message.length > FEEDBACK_MESSAGE_MAX
+        ? `Feedback must be at most ${FEEDBACK_MESSAGE_MAX} characters`
+        : null,
+    customerName:
+      values.customerName.trim().length > FEEDBACK_NAME_MAX ? `Name must be at most ${FEEDBACK_NAME_MAX} characters` : null,
+    customerEmail: values.customerEmail.trim() ? checkEmail(values.customerEmail) : null,
+  });
+}
+
+// Mirrors server/src/validators/links.js.
+export const LINK_NAME_MAX = 60;
+
+export function validateLinkName(values) {
+  const name = values.name.trim();
+  return collect({
+    name: !name
+      ? "Link name is required"
+      : name.length < 2 || name.length > LINK_NAME_MAX
+        ? `Link name must be 2 to ${LINK_NAME_MAX} characters`
+        : null,
+  });
+}
+
 export function validateLogin(values) {
   return collect({
     email: values.email.trim() ? null : "Email is required",

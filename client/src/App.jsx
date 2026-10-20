@@ -15,6 +15,8 @@ import WaitingPage from "./pages/WaitingPage.jsx";
 import SetupPage from "./pages/SetupPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import LinksPage from "./pages/LinksPage.jsx";
+import FeedbackPage from "./pages/FeedbackPage.jsx";
 import SuperAdminPage from "./pages/SuperAdminPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
@@ -24,6 +26,8 @@ export default function App() {
     <Routes>
       {/* Outside the session gate so it still works when the API is down. */}
       <Route path="/health" element={<HealthPage />} />
+      {/* Public customer page: no session needed, so it never waits on /me. */}
+      <Route path="/f/:slug/:code?" element={<FeedbackPage />} />
 
       <Route element={<SessionGate />}>
         <Route index element={<RootRedirect />} />
@@ -43,6 +47,7 @@ export default function App() {
             <Route path="setup" element={<SetupPage />} />
             <Route element={<AppShell />}>
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="links" element={<LinksPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route index element={<Navigate to="dashboard" replace />} />

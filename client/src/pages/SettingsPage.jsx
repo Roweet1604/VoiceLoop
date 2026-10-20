@@ -4,6 +4,7 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
 import PublicLink from "../components/PublicLink.jsx";
+import { publicFeedbackUrl } from "../lib/publicUrl.js";
 import { useBusiness, useHandleAccessError } from "../context/BusinessContext.jsx";
 import { useForm } from "../hooks/useForm.js";
 import { api } from "../lib/api.js";
@@ -109,7 +110,7 @@ export default function SettingsPage() {
           Created when you set up your business. It doesn't change when you rename it, so printed links keep working.
         </p>
         <div className="mt-4">
-          <PublicLink slug={business.publicSlug} />
+          <PublicLink url={publicFeedbackUrl(business.publicSlug)} />
         </div>
       </Card>
     </>

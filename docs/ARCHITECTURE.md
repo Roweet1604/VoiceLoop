@@ -186,7 +186,8 @@ A business is publicly available only when it's active and its organization's ac
 | `/signup`, `/login` | logged-out only | Auth forms |
 | `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |
 | `/app/setup` | active owner without a business | Create the business |
-| `/app/dashboard`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
+| `/app/dashboard`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`); links page has QR codes |
+| `/f/:slug`, `/f/:slug/:code` | none (public, outside the session gate) | Customer feedback form |
 | `/super-admin` | Super Admin | Account approvals |
 | `/health` | none | API reachability check |
 

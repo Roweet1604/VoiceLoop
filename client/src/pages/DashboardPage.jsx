@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router";
 import Card from "../components/ui/Card.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import PublicLink from "../components/PublicLink.jsx";
+import { publicFeedbackUrl } from "../lib/publicUrl.js";
 import { useBusiness } from "../context/BusinessContext.jsx";
 
 // Overview for the owner. Only real data: feedback metrics come later.
@@ -26,9 +27,14 @@ export default function DashboardPage() {
           Customers will use this link to send you feedback. It stays the same even if you rename your business.
         </p>
         <div className="mt-4">
-          <PublicLink slug={business.publicSlug} />
+          <PublicLink url={publicFeedbackUrl(business.publicSlug)} />
         </div>
-        <p className="mt-2 text-xs text-ink-muted">The customer feedback form at this link isn't live yet.</p>
+        <p className="mt-2 text-xs text-ink-muted">
+          Need separate links or QR codes for tables, rooms or your website?{" "}
+          <Link to="/app/links" className="font-medium text-accent hover:underline">
+            Manage links
+          </Link>
+        </p>
       </Card>
 
       <Card className="mt-4">

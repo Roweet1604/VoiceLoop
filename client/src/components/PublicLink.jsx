@@ -3,14 +3,9 @@ import { Check, Copy } from "lucide-react";
 import Button from "./ui/Button.jsx";
 import { inputClasses } from "./ui/TextField.jsx";
 
-export function publicFeedbackUrl(slug) {
-  return `${window.location.origin}/f/${slug}`;
-}
-
-// Read-only public link with a copy button. If the clipboard isn't available
-// (e.g. an insecure origin), the link is selected so it can be copied by hand.
-export default function PublicLink({ slug }) {
-  const url = publicFeedbackUrl(slug);
+// Read-only URL with a copy button. If the clipboard isn't available (e.g.
+// an insecure origin), the URL is selected so it can be copied by hand.
+export default function PublicLink({ url, label = "Public feedback link" }) {
   const inputRef = useRef(null);
   const [status, setStatus] = useState("idle"); // idle | copied | failed
 
@@ -37,11 +32,11 @@ export default function PublicLink({ slug }) {
           ref={inputRef}
           readOnly
           value={url}
-          aria-label="Public feedback link"
+          aria-label={label}
           onFocus={(e) => e.target.select()}
-          className={`${inputClasses} border-border-strong bg-canvas font-mono text-xs`}
+          className={`${inputClasses} min-w-0 border-border-strong bg-canvas font-mono text-xs`}
         />
-        <Button variant="secondary" onClick={copy} className="shrink-0">
+        <Button variant="secondary" onClick={copy} className="shrink-0" aria-label={`Copy ${label.toLowerCase()}`}>
           {status === "copied" ? (
             <Check className="h-4 w-4 text-success" aria-hidden="true" />
           ) : (
@@ -50,9 +45,11 @@ export default function PublicLink({ slug }) {
           {status === "copied" ? "Copied" : "Copy"}
         </Button>
       </div>
-      <p className="mt-1.5 text-xs" role="status">
+      <p className="text-xs" role="status">
         {status === "failed" ? (
-          <span className="text-danger">Couldn't copy automatically. The link is selected; copy it with Ctrl+C or ⌘C.</span>
+          <span className="mt-1.5 block text-danger">
+            Couldn't copy automatically. The link is selected; copy it with Ctrl+C or ⌘C.
+          </span>
         ) : (
           <span className="sr-only">{status === "copied" ? "Link copied" : ""}</span>
         )}

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import { LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, QrCode, Settings, LogOut } from "lucide-react";
 import { Wordmark } from "./AuthLayout.jsx";
 import Button from "./ui/Button.jsx";
 import Alert from "./ui/Alert.jsx";
@@ -9,6 +9,7 @@ import { useLogout } from "../hooks/useLogout.js";
 
 const NAV = [
   { to: "/app/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { to: "/app/links", label: "Links & QR codes", Icon: QrCode },
   { to: "/app/settings", label: "Settings", Icon: Settings },
 ];
 
