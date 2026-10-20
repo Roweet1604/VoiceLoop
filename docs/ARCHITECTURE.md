@@ -20,7 +20,7 @@ VoiceLoop/
 │   │   ├── app.js              createApp(): middleware, routes, error handling (no listen)
 │   │   ├── index.js            Startup: checks config, connects MongoDB, listens
 │   │   ├── config/db.js        MongoDB connection via Mongoose
-│   │   ├── models/             Mongoose models (User, Organization, Business, AuditLog)
+│   │   ├── models/             Mongoose models (User, Organization, Business, FeedbackLink, Feedback, AuditLog)
 │   │   ├── routes/             One router per resource, mounted under /api
 │   │   ├── services/           Business logic shared by routes (accountAccess)
 │   │   ├── middleware/         notFound, errorHandler, validate, rateLimit, auth
@@ -137,11 +137,47 @@ All routes run `requireAuth`, `requireActiveAccess` and `requireOwner`. The Supe
 | `POST /` | `name` (required, 2–80), `locationName` (≤80), `welcomeMessage` (≤300), `googleReviewUrl` (https URL or empty) | `201 { business }`; `409 BUSINESS_EXISTS` if the organization already has one |
 | `PATCH /` | any of the same four fields (at least one) | `{ business }`; `404` if there's no business yet |
 
-### Public API (`/api/public`)
+## Feedback links
 
-No session needed. Limited to 60 requests per IP per minute, on top of the API-wide limit.
+A `FeedbackLink` is a named entry point (e.g. "Reception", "Table 4") with a permanent random 8-character `code`, reached at `/f/<business slug>/<code>`.
 
-`GET /api/public/business/:slug` returns `{ business: { slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl } }` only when the business is active and its organization's access is currently active (not pending, rejected, suspended or past its end date). Every other case returns the same `404 "This feedback page isn't available"`. The response is sent with `Cache-Control: no-store`.
+- **Default link.** Every business has one "Main link" (`isDefault: true`), which also serves `/f/<slug>` with no code. It's created with the business. `ensureDefaultLink()` creates it if missing and is safe to run repeatedly or concurrently; a partial unique index allows one default per business. Older businesses get it the first time the owner calls `GET /api/links`, or all at once with `node scripts/ensure-default-links.js`.
+- **Deactivating** a link refuses new submissions through it (generic 404) but never deletes or changes its feedback.
+
+### Owner API (`/api/links`)
+
+Same guards as `/api/business` (`requireAuth`, `requireActiveAccess`, `requireOwner`). The business comes from the logged-in user's organization; link lookups are scoped to that business, so another tenant's link id is a `404`. If the owner has no business yet, the response is `404 NO_BUSINESS`.
+
+| Method | Body | Result |
+|---|---|---|
+| `GET /` | | `{ links: [{ id, name, code, isActive, isDefault, feedbackCount, … }], unlinkedFeedbackCount }`, default link first |
+| `POST /` | `name` (2–60) | `201 { link }` with a generated code; at most 200 links per business (`409 LINK_LIMIT`) |
+| `PATCH /:id` | `name` and/or `isActive` (boolean) | `{ link }` |
+
+## Feedback
+
+`Feedback` stores one submission: `businessId`, `organizationId`, `linkId`, `category` (`general`, `complaint`, `suggestion`, `compliment`, `other`), `message` (1–2000), optional `customerName` (≤80) and `customerEmail`, `submissionType` (`text`), `reviewStatus` (`new`/`reviewed`), `complaintStatus` (`open` for complaints, otherwise null; later `in_progress`/`resolved`), `internalNotes`, `submittedAt` and `idempotencyKey`. Indexes: `{ businessId, submittedAt }`, unique `{ businessId, idempotencyKey }`, `{ linkId }`.
+
+## Public API (`/api/public`)
+
+No session needed. Every route is limited to 60 requests per IP per minute, on top of the API-wide limit. Responses are sent with `Cache-Control: no-store`.
+
+A business is publicly available only when it's active and its organization's access is currently active (not pending, rejected, suspended or past its end date). Unknown slugs, unknown or malformed link codes, inactive links, another business's link code, and unavailable businesses all return the same `404 "This feedback page isn't available"`.
+
+| Method and path | Result |
+|---|---|
+| `GET /business/:slug` | `{ business }` |
+| `GET /f/:slug` and `GET /f/:slug/:code` | `{ business, linkCode }`. The link's name is not exposed. |
+| `POST /f/:slug/submit` | `201 { submitted: true, submittedAt }` |
+
+`business` is always just `{ slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl }`.
+
+**Submitting feedback.** The body takes `category`, `message`, optional `customerName`, `customerEmail` and `linkCode`, plus a required `idempotencyKey` (16–100 characters of `A–Z a–z 0–9 _ -`, e.g. `crypto.randomUUID()`). Other fields are ignored. Status fields and notes always start at their defaults.
+
+- **No link code:** the feedback is attributed to the default link.
+- **Idempotency:** a repeated key for the same business stores nothing new and returns the original `201` response, including when two copies arrive at once. The client should generate one key per submission attempt and reuse it on retries.
+- **Rate limit:** at most 10 submissions per IP per 10 minutes.
+- **Confirmation:** success is only returned after the database write succeeds.
 
 ## Client routes
 

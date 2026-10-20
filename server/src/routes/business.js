@@ -5,6 +5,7 @@ import { slugify, randomSuffix } from "../utils/slug.js";
 import { validate } from "../middleware/validate.js";
 import { requireAuth, requireActiveAccess, requireOwner } from "../middleware/auth.js";
 import { createBusinessBody, updateBusinessBody, pickBusinessFields } from "../validators/business.js";
+import { ensureDefaultLink } from "../services/feedbackLinks.js";
 
 const SLUG_ATTEMPTS = 5;
 
@@ -55,6 +56,9 @@ router.post("/", validate({ body: createBusinessBody }), async (req, res) => {
     if (await Business.exists({ publicSlug })) continue;
     try {
       const business = await Business.create({ ...fields, organizationId, publicSlug });
+      // Every business starts with a "Main link". If this fails, the link is
+      // still created later by ensureDefaultLink (GET /api/links or the script).
+      await ensureDefaultLink(business);
       return res.status(201).json({ business: serializeBusiness(business) });
     } catch (err) {
       if (err.code !== 11000) throw err;
