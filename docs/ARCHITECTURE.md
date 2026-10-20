@@ -20,7 +20,7 @@ VoiceLoop/
 │   │   ├── app.js              createApp(): middleware, routes, error handling (no listen)
 │   │   ├── index.js            Startup: checks config, connects MongoDB, listens
 │   │   ├── config/db.js        MongoDB connection via Mongoose
-│   │   ├── models/             Mongoose models (User, Organization, AuditLog)
+│   │   ├── models/             Mongoose models (User, Organization, Business, AuditLog)
 │   │   ├── routes/             One router per resource, mounted under /api
 │   │   ├── services/           Business logic shared by routes (accountAccess)
 │   │   ├── middleware/         notFound, errorHandler, validate, rateLimit, auth
@@ -119,6 +119,42 @@ Every access change writes, in one MongoDB transaction:
 - an `AuditLog` document: `actor`, `actorEmail`, `action` (e.g. `access.approve`), `targetType`, `targetId`, `createdAt`, and a `context` with statuses, dates and the reason. No password data is ever written there.
 
 Refused actions write nothing. Transactions need a replica set: MongoDB Atlas (including the free tier) has one, but a standalone local `mongod` doesn't, so access changes would fail there.
+
+## Businesses
+
+Each organization has at most one `Business` (unique index on `organizationId`): `name`, `locationName`, `welcomeMessage`, `googleReviewUrl`, `logoUrl` (not editable yet, always empty), `publicSlug`, `isActive`.
+
+- **Public slug.** Generated once from the name: accents removed, lowercase, non-alphanumerics become hyphens, max 50 characters (`"Corner Café & Co."` → `corner-cafe-co`). If taken, a 5-character random suffix is added (`corner-cafe-co-k3x9q`). Names with no Latin letters or digits get `business` (plus a suffix if needed). The field is immutable, so renaming never breaks printed links or QR codes.
+- **Stored as entered.** Text is not HTML-escaped in the database. The client renders it as plain text (React escapes it; nothing uses `dangerouslySetInnerHTML`).
+
+### Owner API (`/api/business`)
+
+All routes run `requireAuth`, `requireActiveAccess` and `requireOwner`. The Super Admin and owners whose access isn't active get `403`. The business is always found through the logged-in user's `organizationId` from the database. Ids in the URL, query or body are never used, and unknown body fields are ignored.
+
+| Method | Body | Result |
+|---|---|---|
+| `GET /` | | `{ business }`, or `{ business: null }` if none yet |
+| `POST /` | `name` (required, 2–80), `locationName` (≤80), `welcomeMessage` (≤300), `googleReviewUrl` (https URL or empty) | `201 { business }`; `409 BUSINESS_EXISTS` if the organization already has one |
+| `PATCH /` | any of the same four fields (at least one) | `{ business }`; `404` if there's no business yet |
+
+### Public API (`/api/public`)
+
+No session needed. Limited to 60 requests per IP per minute, on top of the API-wide limit.
+
+`GET /api/public/business/:slug` returns `{ business: { slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl } }` only when the business is active and its organization's access is currently active (not pending, rejected, suspended or past its end date). Every other case returns the same `404 "This feedback page isn't available"`. The response is sent with `Cache-Control: no-store`.
+
+## Client routes
+
+| Path | Guard | Page |
+|---|---|---|
+| `/signup`, `/login` | logged-out only | Auth forms |
+| `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |
+| `/app/setup` | active owner without a business | Create the business |
+| `/app/dashboard`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
+| `/super-admin` | Super Admin | Account approvals |
+| `/health` | none | API reachability check |
+
+`BusinessGate` (in `context/BusinessContext.jsx`) loads the business for every `/app` page, sends owners without one to `/app/setup`, and re-checks the session on a `401`/`403` so revoked access lands on the waiting page.
 
 ### Response shapes
 

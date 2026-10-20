@@ -1,12 +1,12 @@
 import { useState } from "react";
 
-// Form state for the auth pages.
+// Form state for simple forms (auth, business setup and settings).
 //
 // Validation runs on submit. After the first submit attempt, fields are
 // re-validated as the user types so errors clear as soon as they're fixed.
 // Server errors are mapped back onto fields where possible (the server's
 // `details` use the same field names), otherwise shown as a form-level error.
-export function useAuthForm(initialValues, validate) {
+export function useForm(initialValues, validate) {
   const [values, setValues] = useState(initialValues);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState(null);
@@ -64,5 +64,13 @@ export function useAuthForm(initialValues, validate) {
     };
   }
 
-  return { values, bind, handleSubmit, submitting, formError };
+  // Replace the values (e.g. with what the server saved) and clear errors.
+  function reset(nextValues) {
+    setValues(nextValues);
+    setFieldErrors({});
+    setFormError(null);
+    setAttempted(false);
+  }
+
+  return { values, bind, handleSubmit, submitting, formError, reset };
 }

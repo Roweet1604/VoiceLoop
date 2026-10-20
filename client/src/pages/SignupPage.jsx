@@ -5,14 +5,14 @@ import PasswordField from "../components/ui/PasswordField.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { useAuthForm } from "../hooks/useAuthForm.js";
+import { useForm } from "../hooks/useForm.js";
 import { validateSignup, PASSWORD_MIN_LENGTH } from "../lib/validation.js";
 import { homePathFor } from "../lib/access.js";
 
 export default function SignupPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const { bind, handleSubmit, submitting, formError } = useAuthForm(
+  const { bind, handleSubmit, submitting, formError } = useForm(
     { name: "", organizationName: "", email: "", password: "" },
     validateSignup
   );

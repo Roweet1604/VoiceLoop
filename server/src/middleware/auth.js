@@ -40,6 +40,13 @@ export function requireSuperAdmin(req, res, next) {
   next();
 }
 
+// Must run after requireAuth. For routes that act on the caller's own
+// organization: the Super Admin has none, so is refused here.
+export function requireOwner(req, res, next) {
+  if (req.user.role !== "owner") throw AppError.forbidden("Only business owners can do this");
+  next();
+}
+
 // Must run after requireAuth. Lets through only owners whose organization is
 // currently active (not pending, rejected, suspended, or past its expiry).
 // The Super Admin has no organization and is not subject to access periods.

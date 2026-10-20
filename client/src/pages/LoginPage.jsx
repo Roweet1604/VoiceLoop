@@ -5,7 +5,7 @@ import PasswordField from "../components/ui/PasswordField.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-import { useAuthForm } from "../hooks/useAuthForm.js";
+import { useForm } from "../hooks/useForm.js";
 import { validateLogin } from "../lib/validation.js";
 import { homePathFor } from "../lib/access.js";
 
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const from = location.state?.from;
   const loggedOut = location.state?.loggedOut;
 
-  const { bind, handleSubmit, submitting, formError } = useAuthForm({ email: "", password: "" }, validateLogin);
+  const { bind, handleSubmit, submitting, formError } = useForm({ email: "", password: "" }, validateLogin);
 
   const onSubmit = handleSubmit(async (values) => {
     const session = await login({ email: values.email.trim(), password: values.password });

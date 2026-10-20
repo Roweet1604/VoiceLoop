@@ -7,10 +7,12 @@ export const inputClasses =
 
 // Label, input, hint and error wired together for screen readers.
 // `trailing` renders inside the input on the right (e.g. a show/hide toggle).
-export default function TextField({ label, hint, error, trailing, className = "", ...inputProps }) {
+// `multiline` renders a textarea instead of an input.
+export default function TextField({ label, hint, error, trailing, multiline = false, className = "", ...inputProps }) {
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
+  const Control = multiline ? "textarea" : "input";
 
   return (
     <div className={className}>
@@ -18,11 +20,11 @@ export default function TextField({ label, hint, error, trailing, className = ""
         {label}
       </label>
       <div className="relative mt-1.5">
-        <input
+        <Control
           id={id}
           aria-invalid={error ? true : undefined}
           aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
-          className={`${inputClasses} ${error ? "border-danger" : "border-border-strong"} ${trailing ? "pr-10" : ""}`}
+          className={`${inputClasses} ${error ? "border-danger" : "border-border-strong"} ${trailing ? "pr-10" : ""} ${multiline ? "resize-y" : ""}`}
           {...inputProps}
         />
         {trailing && <div className="absolute inset-y-0 right-0 flex items-center pr-1">{trailing}</div>}

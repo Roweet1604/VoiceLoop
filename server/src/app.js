@@ -6,9 +6,12 @@ import { createLimiter } from "./middleware/rateLimit.js";
 import healthRouter from "./routes/health.js";
 import { createAuthRouter } from "./routes/auth.js";
 import superAdminRouter from "./routes/superAdmin.js";
+import businessRouter from "./routes/business.js";
+import publicRouter from "./routes/public.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
+const ONE_MINUTE = 60 * 1000;
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
 
@@ -35,6 +38,9 @@ export function createApp({ limits = {} } = {}) {
     })
   );
   app.use("/api/super-admin", superAdminRouter);
+  app.use("/api/business", businessRouter);
+  // Public endpoints get their own, tighter per-IP limit on top of the API-wide one.
+  app.use("/api/public", createLimiter({ windowMs: ONE_MINUTE, limit: limits.public ?? 60 }), publicRouter);
 
   app.use(notFound);
   app.use(errorHandler);

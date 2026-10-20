@@ -7,10 +7,14 @@ import {
   RequireActiveAccess,
   RequireSuperAdmin,
 } from "./components/RouteGuards.jsx";
+import { BusinessGate } from "./context/BusinessContext.jsx";
+import AppShell from "./components/AppShell.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import WaitingPage from "./pages/WaitingPage.jsx";
+import SetupPage from "./pages/SetupPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import SettingsPage from "./pages/SettingsPage.jsx";
 import SuperAdminPage from "./pages/SuperAdminPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
@@ -33,10 +37,17 @@ export default function App() {
           <Route path="/waiting-for-approval" element={<WaitingPage />} />
         </Route>
 
+        {/* Active owners. BusinessGate sends owners without a business to setup. */}
         <Route path="/app" element={<RequireActiveAccess />}>
-          <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="*" element={<Navigate to="dashboard" replace />} />
+          <Route element={<BusinessGate />}>
+            <Route path="setup" element={<SetupPage />} />
+            <Route element={<AppShell />}>
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Route>
         </Route>
 
         <Route path="/super-admin" element={<RequireSuperAdmin />}>
