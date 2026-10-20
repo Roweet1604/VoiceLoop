@@ -2,8 +2,10 @@ import { Router } from "express";
 import { requireAuth, requireSuperAdmin } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { changeAccess, listAccounts } from "../services/accountAccess.js";
+import { deleteOrganizationAccount } from "../services/accountDeletion.js";
 import {
   listQuery,
+  deleteAccountBody,
   approveBody,
   rejectBody,
   suspendBody,
@@ -36,6 +38,16 @@ const ACTION_VALIDATORS = {
   reactivate: reactivateBody,
   extend: extendBody,
 };
+
+// Permanent deletion; see services/accountDeletion.js.
+router.post("/accounts/:id/delete", validate({ body: deleteAccountBody }), async (req, res) => {
+  const result = await deleteOrganizationAccount({
+    organizationId: req.params.id,
+    confirmName: req.body.confirmName,
+    actor: req.user,
+  });
+  res.json({ deleted: result });
+});
 
 for (const [action, validator] of Object.entries(ACTION_VALIDATORS)) {
   router.post(`/accounts/:id/${action}`, validate({ body: validator }), async (req, res) => {

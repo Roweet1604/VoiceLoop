@@ -4,6 +4,8 @@ const VARIANTS = {
   primary: "bg-accent text-accent-ink hover:bg-accent-hover border border-transparent",
   secondary: "bg-surface text-ink hover:bg-subtle border border-border-strong",
   danger: "bg-danger text-white hover:bg-danger/90 border border-transparent",
+  // Destructive action that sits next to ordinary ones without shouting.
+  dangerOutline: "bg-surface text-danger hover:bg-danger-soft border border-danger/40",
 };
 
 const SIZES = {

@@ -81,6 +81,14 @@ export function extendBody(body) {
   return {};
 }
 
+export function deleteAccountBody(body) {
+  if (typeof body.confirmName !== "string" || !body.confirmName.trim()) {
+    return { confirmName: "Type the business name to confirm" };
+  }
+  if (body.confirmName.length > 200) return { confirmName: "That name is too long" };
+  return {};
+}
+
 export function listQuery(query) {
   const errors = {};
   if (query.status !== undefined && query.status !== "all" && !ACCESS_STATUSES.includes(query.status)) {

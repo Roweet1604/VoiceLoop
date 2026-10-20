@@ -5,7 +5,8 @@ import mongoose from "mongoose";
 const auditLogSchema = new mongoose.Schema({
   actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   // Snapshot so the log stays readable if the actor account is later removed.
-  actorEmail: { type: String, required: true },
+  // Optional: some entries (account deletion) deliberately store no email.
+  actorEmail: { type: String },
   action: { type: String, required: true }, // e.g. "access.approve"
   targetType: { type: String, required: true }, // e.g. "Organization"
   targetId: { type: mongoose.Schema.Types.ObjectId, required: true },

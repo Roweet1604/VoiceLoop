@@ -720,3 +720,6 @@ Build VoiceLoop as a product I can confidently demonstrate to a real business ow
 - Super Admin can extend, suspend, reactivate. Every change goes to the audit log.
 - Passwords are hashed and never viewable by anyone. Password reset is by email.
 - This is manual access control, not billing: no payments, no plans, no feature limits.
+
+## DELETION RULE
+- Account deletion must remove ALL data of that organization from every collection and from audio storage. Whenever a new collection or stored file type is added, update the deletion service and its tests in the same change.

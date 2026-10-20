@@ -30,5 +30,15 @@ export function useAccounts(query) {
   }, [query, reloadKey, refresh]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  return { ...state, reload };
+
+  // Drop a row the server has confirmed is gone, without waiting for a reload.
+  const removeAccount = useCallback((id) => {
+    setState((s) =>
+      s.data
+        ? { ...s, data: { ...s.data, accounts: s.data.accounts.filter((a) => a.id !== id), total: s.data.total - 1 } }
+        : s
+    );
+  }, []);
+
+  return { ...state, reload, removeAccount };
 }

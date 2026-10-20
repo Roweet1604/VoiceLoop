@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Search, LoaderCircle, RefreshCw, X } from "lucide-react";
+import { Search, LoaderCircle, RefreshCw, X, Trash2 } from "lucide-react";
 import AppHeader from "../components/AppHeader.jsx";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
@@ -8,6 +8,7 @@ import Alert from "../components/ui/Alert.jsx";
 import { inputClasses } from "../components/ui/TextField.jsx";
 import StatusBadge from "../components/super-admin/StatusBadge.jsx";
 import AccountActionDialog, { ACTION_LABELS } from "../components/super-admin/AccountActionDialog.jsx";
+import DeleteAccountDialog, { confirmationName } from "../components/super-admin/DeleteAccountDialog.jsx";
 import { useAccounts } from "../hooks/useAccounts.js";
 import { useLogout } from "../hooks/useLogout.js";
 import { formatDate } from "../lib/format.js";
@@ -65,7 +66,7 @@ export default function SuperAdminPage() {
   const [notice, setNotice] = useState(null);
 
   const query = new URLSearchParams({ ...view.params, ...(q && { q }), page: String(page), limit: String(PAGE_SIZE) });
-  const { loading, data, error, reload } = useAccounts(query.toString());
+  const { loading, data, error, reload, removeAccount } = useAccounts(query.toString());
 
   function updateParams(changes) {
     const next = new URLSearchParams(searchParams);
@@ -88,6 +89,14 @@ export default function SuperAdminPage() {
     setDialog(null);
     setNotice(successMessage(account, action));
     reload();
+  }
+
+  // Called only after the server confirmed the deletion.
+  function handleDeleted(account) {
+    setDialog(null);
+    removeAccount(account.id);
+    setNotice(`Deleted ${confirmationName(account)} and all its data permanently.`);
+    reload(); // refresh the counts in the view tabs
   }
 
   const counts = data?.counts;
@@ -243,7 +252,10 @@ export default function SuperAdminPage() {
         </Card>
       </main>
 
-      {dialog && (
+      {dialog?.action === "delete" && (
+        <DeleteAccountDialog account={dialog.account} onClose={() => setDialog(null)} onDeleted={handleDeleted} />
+      )}
+      {dialog && dialog.action !== "delete" && (
         <AccountActionDialog
           account={dialog.account}
           action={dialog.action}
@@ -261,7 +273,13 @@ function AccountRow({ account, onAction }) {
 
   return (
     <tr className="hover:bg-canvas">
-      <td className="px-4 py-3 font-medium text-ink">{account.name}</td>
+      <td className="px-4 py-3">
+        <div className="font-medium text-ink">{account.businessName ?? account.name}</div>
+        {account.businessName && account.businessName !== account.name && (
+          <div className="text-xs text-ink-muted">{account.name}</div>
+        )}
+        {!account.businessName && <div className="text-xs text-ink-muted">No business set up</div>}
+      </td>
       <td className="px-4 py-3">
         {account.owner ? (
           <>
@@ -302,6 +320,18 @@ function AccountRow({ account, onAction }) {
               {ACTION_LABELS[action]}
             </Button>
           ))}
+          {/* Kept apart from the routine actions so it isn't clicked by habit. */}
+          <span className="ml-1.5 border-l border-border pl-1.5">
+            <Button
+              size="sm"
+              variant="dangerOutline"
+              onClick={() => onAction("delete")}
+              aria-label={`Delete ${account.businessName ?? account.name} permanently`}
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Delete
+            </Button>
+          </span>
         </div>
       </td>
     </tr>

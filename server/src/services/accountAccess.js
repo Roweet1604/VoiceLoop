@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import { Organization, effectiveAccessStatus, ACCESS_STATUSES } from "../models/Organization.js";
 import { User } from "../models/User.js";
+import { Business } from "../models/Business.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { AppError } from "../utils/AppError.js";
 
@@ -17,12 +18,13 @@ function invalidTransition(message) {
 
 // Shape returned to the admin UI. Only whitelisted fields: no password data,
 // and the access history stays out of the list.
-export function serializeAccount(org, owner, now = new Date()) {
+export function serializeAccount(org, owner, business, now = new Date()) {
   const accessStatus = effectiveAccessStatus(org, now);
   const expiresAt = org.accessExpiresAt ? new Date(org.accessExpiresAt) : null;
   return {
     id: org._id,
     name: org.name,
+    businessName: business?.name ?? null,
     owner: owner ? { id: owner._id, name: owner.name, email: owner.email } : null,
     requestedAt: org.createdAt,
     accessStatus,
@@ -158,8 +160,11 @@ export async function changeAccess({ organizationId, action, body, actor }) {
     updated = org;
   });
 
-  const owner = await User.findOne({ organizationId: updated._id, role: "owner" }).select("name email");
-  return serializeAccount(updated, owner);
+  const [owner, business] = await Promise.all([
+    User.findOne({ organizationId: updated._id, role: "owner" }).select("name email"),
+    Business.findOne({ organizationId: updated._id }).select("name"),
+  ]);
+  return serializeAccount(updated, owner, business);
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +215,23 @@ export async function listAccounts({ status = "all", q = "", expiring = false, p
         as: "owners",
       },
     },
-    { $addFields: { owner: { $first: "$owners" }, effectiveStatus: effectiveStatusExpression(now) } },
-    { $project: { owners: 0, accessHistory: 0 } },
+    {
+      $lookup: {
+        from: Business.collection.name,
+        localField: "_id",
+        foreignField: "organizationId",
+        pipeline: [{ $project: { name: 1 } }],
+        as: "businesses",
+      },
+    },
+    {
+      $addFields: {
+        owner: { $first: "$owners" },
+        business: { $first: "$businesses" },
+        effectiveStatus: effectiveStatusExpression(now),
+      },
+    },
+    { $project: { owners: 0, businesses: 0, accessHistory: 0 } },
     {
       $facet: {
         items: [{ $match: filter }, { $sort: sort }, { $skip: (page - 1) * limit }, { $limit: limit }],
@@ -229,7 +249,7 @@ export async function listAccounts({ status = "all", q = "", expiring = false, p
 
   const total = result.total[0]?.n ?? 0;
   return {
-    accounts: result.items.map((org) => serializeAccount(org, org.owner, now)),
+    accounts: result.items.map((org) => serializeAccount(org, org.owner, org.business, now)),
     page,
     limit,
     total,

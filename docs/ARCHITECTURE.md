@@ -120,6 +120,20 @@ Every access change writes, in one MongoDB transaction:
 
 Refused actions write nothing. Transactions need a replica set: MongoDB Atlas (including the free tier) has one, but a standalone local `mongod` doesn't, so access changes would fail there.
 
+### Permanent account deletion
+
+`POST /api/super-admin/accounts/:id/delete` with `{ confirmName }` (Super Admin only). `confirmName` must match the business name exactly (case-sensitive, surrounding spaces ignored), or the organization name if no business exists. Otherwise the response is `400 CONFIRMATION_MISMATCH` and nothing is deleted. Unknown ids return `404`. An organization that contains a Super Admin returns `403`.
+
+`deleteOrganizationAccount()` in `services/accountDeletion.js` runs in one transaction. If any step fails, nothing is deleted. It removes:
+
+- feedback (including internal notes), feedback links, the business, and the organization's users (never Super Admins), via `ORGANIZATION_DATA`;
+- all earlier AuditLog entries about the organization;
+- the organization itself, including its `accessHistory`.
+
+It then writes one AuditLog entry: `action: "account_deleted"`, `actor`, `targetId` (the organization id), `context.businessName` and `createdAt`, with no email, feedback text or password data. The deleted owner's session stops working immediately, because `requireAuth` no longer finds the user, and the public pages return the generic 404.
+
+**Deletion rule.** Any new collection holding organization data must be added to `ORGANIZATION_DATA`. The test "covers every model" in `tests/deletion.test.js` fails for any model with an `organizationId` that isn't listed. Audio storage cleanup has a marked placeholder in the service: collect keys inside the transaction, then delete the files after it commits.
+
 ## Businesses
 
 Each organization has at most one `Business` (unique index on `organizationId`): `name`, `locationName`, `welcomeMessage`, `googleReviewUrl`, `logoUrl` (not editable yet, always empty), `publicSlug`, `isActive`.
