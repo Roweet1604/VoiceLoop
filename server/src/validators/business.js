@@ -2,7 +2,17 @@
 // the fields listed in BUSINESS_FIELDS, so anything else in the body
 // (organizationId, publicSlug, isActive, logoUrl, _id, ...) is ignored.
 
-export const BUSINESS_FIELDS = ["name", "locationName", "welcomeMessage", "googleReviewUrl"];
+// Landing-screen card wording; empty means "use the default".
+export const WORDING_FIELDS = {
+  reviewCardTitle: { label: "Review card title", max: 60 },
+  reviewCardText: { label: "Review card text", max: 160 },
+  reviewCardButton: { label: "Review card button", max: 30 },
+  feedbackCardTitle: { label: "Feedback card title", max: 60 },
+  feedbackCardText: { label: "Feedback card text", max: 160 },
+  feedbackCardButton: { label: "Feedback card button", max: 30 },
+};
+
+export const BUSINESS_FIELDS = ["name", "locationName", "welcomeMessage", "googleReviewUrl", ...Object.keys(WORDING_FIELDS)];
 
 const LIMITS = { name: 80, locationName: 80, welcomeMessage: 300, googleReviewUrl: 500 };
 
@@ -41,6 +51,9 @@ const CHECKS = {
   locationName: (v) => checkOptionalText(v, "Location", LIMITS.locationName),
   welcomeMessage: (v) => checkOptionalText(v, "Welcome message", LIMITS.welcomeMessage),
   googleReviewUrl: checkReviewUrl,
+  ...Object.fromEntries(
+    Object.entries(WORDING_FIELDS).map(([field, { label, max }]) => [field, (v) => checkOptionalText(v, label, max)])
+  ),
 };
 
 function checkFields(body, fields) {

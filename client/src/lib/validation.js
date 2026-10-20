@@ -71,9 +71,25 @@ function checkBusinessName(value) {
 const optionalMax = (value, label, max) =>
   value.trim().length > max ? `${label} must be at most ${max} characters` : null;
 
+// Landing-screen wording limits (mirrors WORDING_FIELDS on the server).
+export const WORDING_LIMITS = {
+  reviewCardTitle: 60,
+  reviewCardText: 160,
+  reviewCardButton: 30,
+  feedbackCardTitle: 60,
+  feedbackCardText: 160,
+  feedbackCardButton: 30,
+};
+
 // Validates whichever business fields are present in `values`.
 export function validateBusiness(values) {
+  const wording = Object.fromEntries(
+    Object.entries(WORDING_LIMITS)
+      .filter(([field]) => field in values)
+      .map(([field, max]) => [field, values[field].trim().length > max ? `Keep this under ${max + 1} characters` : null])
+  );
   return collect({
+    ...wording,
     name: "name" in values ? checkBusinessName(values.name) : null,
     locationName: "locationName" in values ? optionalMax(values.locationName, "Location", BUSINESS_LIMITS.locationName) : null,
     welcomeMessage:

@@ -19,6 +19,14 @@ const businessSchema = new mongoose.Schema(
     welcomeMessage: { type: String, trim: true, maxlength: 300, default: "" },
     googleReviewUrl: { type: String, trim: true, maxlength: 500, default: "" },
     logoUrl: { type: String, trim: true, maxlength: 500, default: "" },
+    // Wording for the two cards on the public landing screen. Empty means the
+    // client shows its neutral default text.
+    reviewCardTitle: { type: String, trim: true, maxlength: 60, default: "" },
+    reviewCardText: { type: String, trim: true, maxlength: 160, default: "" },
+    reviewCardButton: { type: String, trim: true, maxlength: 30, default: "" },
+    feedbackCardTitle: { type: String, trim: true, maxlength: 60, default: "" },
+    feedbackCardText: { type: String, trim: true, maxlength: 160, default: "" },
+    feedbackCardButton: { type: String, trim: true, maxlength: 30, default: "" },
     // Used in the public feedback URL /f/<publicSlug>. Set once at creation and
     // never changed, so printed QR codes and shared links keep working.
     publicSlug: { type: String, required: true, unique: true, immutable: true },

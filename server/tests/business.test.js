@@ -295,7 +295,20 @@ describe("tenant isolation", () => {
 });
 
 describe("GET /api/public/business/:slug", () => {
-  const PUBLIC_KEYS = ["googleReviewUrl", "locationName", "logoUrl", "name", "slug", "welcomeMessage"];
+  const PUBLIC_KEYS = [
+    "feedbackCardButton",
+    "feedbackCardText",
+    "feedbackCardTitle",
+    "googleReviewUrl",
+    "locationName",
+    "logoUrl",
+    "name",
+    "reviewCardButton",
+    "reviewCardText",
+    "reviewCardTitle",
+    "slug",
+    "welcomeMessage",
+  ];
 
   async function publishedBusiness() {
     const o = await owner("a@a.test");
@@ -324,6 +337,12 @@ describe("GET /api/public/business/:slug", () => {
       welcomeMessage: "Tell us how we did",
       logoUrl: "",
       googleReviewUrl: "https://g.page/r/abc/review",
+      reviewCardTitle: "",
+      reviewCardText: "",
+      reviewCardButton: "",
+      feedbackCardTitle: "",
+      feedbackCardText: "",
+      feedbackCardButton: "",
     });
     const text = JSON.stringify(res.body);
     expect(text).not.toContain(o.orgId);
@@ -371,5 +390,115 @@ describe("GET /api/public/business/:slug", () => {
     const blocked = await request(strictApp).get(`/api/public/business/${biz.publicSlug}`);
     expect(blocked.status).toBe(429);
     expect(blocked.body.error.code).toBe("RATE_LIMITED");
+  });
+});
+
+describe("landing-screen wording", () => {
+  const WORDING = {
+    reviewCardTitle: "Tell others about your visit",
+    reviewCardText: "Post a public review on Google.",
+    reviewCardButton: "Review on Google",
+    feedbackCardTitle: "Message the team",
+    feedbackCardText: "Only the team reads this.",
+    feedbackCardButton: "Write to us",
+  };
+  const LIMITS = { reviewCardTitle: 60, reviewCardText: 160, reviewCardButton: 30, feedbackCardTitle: 60, feedbackCardText: 160, feedbackCardButton: 30 };
+
+  it("defaults to empty, saves on create and update (trimmed), and can be cleared", async () => {
+    const a = await owner("a@a.test");
+    const created = await a.post({ name: "Corner Cafe", reviewCardTitle: "  Share it  " });
+    expect(created.status).toBe(201);
+    expect(created.body.business).toMatchObject({ reviewCardTitle: "Share it", feedbackCardTitle: "", reviewCardText: "" });
+
+    const updated = await a.patch(WORDING);
+    expect(updated.status).toBe(200);
+    expect(updated.body.business).toMatchObject(WORDING);
+
+    const cleared = await a.patch({ reviewCardTitle: "", feedbackCardButton: "" });
+    expect(cleared.body.business).toMatchObject({ ...WORDING, reviewCardTitle: "", feedbackCardButton: "" });
+    expect(await Business.findOne()).toMatchObject({ reviewCardTitle: "", feedbackCardTitle: "Message the team" });
+  });
+
+  it("accepts each field at its limit and rejects one character more", async () => {
+    const a = await owner("a@a.test");
+    await a.post({ name: "Corner Cafe" });
+    for (const [field, max] of Object.entries(LIMITS)) {
+      expect((await a.patch({ [field]: "x".repeat(max) })).status, `${field} at ${max}`).toBe(200);
+      const tooLong = await a.patch({ [field]: "y".repeat(max + 1) });
+      expect(tooLong.status, `${field} at ${max + 1}`).toBe(400);
+      expect(tooLong.body.error.details).toHaveProperty(field);
+    }
+    expect((await a.post({ name: "Second", feedbackCardText: "z".repeat(161) })).status).toBe(400);
+  });
+
+  it.each([[{ reviewCardTitle: { $ne: "" } }], [{ feedbackCardText: ["a", "b"] }], [{ reviewCardButton: 5 }], [{ feedbackCardTitle: null }]])(
+    "rejects non-string values %j",
+    async (body) => {
+      const a = await owner("a@a.test");
+      await a.post({ name: "Corner Cafe" });
+      expect((await a.patch(body)).status).toBe(400);
+      expect((await Business.findOne()).reviewCardTitle).toBe("");
+    }
+  );
+
+  it("ignores unknown wording-like fields", async () => {
+    const a = await owner("a@a.test");
+    await a.post({ name: "Corner Cafe" });
+    const res = await a.patch({ reviewCardTitle: "Hi there", reviewCardColor: "red", reviewIncentive: "10% off" });
+    expect(res.status).toBe(200);
+    expect(res.body.business).not.toHaveProperty("reviewCardColor");
+    expect(res.body.business).not.toHaveProperty("reviewIncentive");
+    const stored = (await Business.findOne()).toObject();
+    expect(stored).not.toHaveProperty("reviewCardColor");
+    expect(stored).not.toHaveProperty("reviewIncentive");
+  });
+
+  it("is returned by both public routes, with still no private fields", async () => {
+    const a = await owner("a@a.test");
+    const biz = (await a.post({ name: "Corner Cafe", googleReviewUrl: "https://g.page/r/x/review", ...WORDING })).body.business;
+
+    for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
+      const res = await request(app).get(path);
+      expect(res.status, path).toBe(200);
+      expect(res.body.business, path).toMatchObject(WORDING);
+      const text = JSON.stringify(res.body);
+      expect(text).not.toContain(a.orgId);
+      expect(text).not.toContain(biz.id);
+      expect(text).not.toMatch(/organization|owner|email|"_?id"|password|isActive|publicSlug/i);
+    }
+  });
+
+  it("owner A can't change owner B's wording", async () => {
+    const a = await owner("a@a.test");
+    const b = await owner("b@b.test");
+    await a.post({ name: "Alpha Cafe" });
+    const bBiz = (await b.post({ name: "Beta Salon", reviewCardTitle: "B's own title" })).body.business;
+
+    const res = await a.patch({ reviewCardTitle: "Hijacked", id: bBiz.id, _id: bBiz.id, organizationId: b.orgId });
+    expect(res.status).toBe(200);
+    expect(res.body.business.name).toBe("Alpha Cafe");
+    expect((await Business.findById(bBiz.id)).reviewCardTitle).toBe("B's own title");
+    expect((await a.patch({ reviewCardTitle: "Hijacked" }, `/${bBiz.id}`)).status).toBe(404);
+    expect((await getPublic(bBiz.publicSlug)).body.business.reviewCardTitle).toBe("B's own title");
+  });
+
+  it("still returns the generic 404 for inactive or suspended businesses", async () => {
+    const a = await owner("a@a.test");
+    const biz = (await a.post({ name: "Corner Cafe", ...WORDING })).body.business;
+
+    await Business.updateOne({ _id: biz.id }, { isActive: false });
+    for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
+      const res = await request(app).get(path);
+      expect(res.status, path).toBe(404);
+      expect(res.body).toEqual({ error: { message: "This feedback page isn't available", code: "NOT_FOUND" } });
+    }
+
+    await Business.updateOne({ _id: biz.id }, { isActive: true });
+    await Organization.updateOne({ _id: a.orgId }, { accessStatus: "suspended" });
+    for (const path of [`/api/public/business/${biz.publicSlug}`, `/api/public/f/${biz.publicSlug}`]) {
+      const res = await request(app).get(path);
+      expect(res.status, path).toBe(404);
+      expect(JSON.stringify(res.body)).not.toContain("Message the team");
+    }
   });
 });

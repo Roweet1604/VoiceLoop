@@ -217,7 +217,20 @@ describe("GET /api/public/f/:slug/:code?", () => {
     const plain = await getPage(o.slug);
     expect(plain.status).toBe(200);
     expect(plain.body).toEqual({
-      business: { slug: "corner-cafe", name: "Corner Cafe", locationName: "", welcomeMessage: "", logoUrl: "", googleReviewUrl: "" },
+      business: {
+        slug: "corner-cafe",
+        name: "Corner Cafe",
+        locationName: "",
+        welcomeMessage: "",
+        logoUrl: "",
+        googleReviewUrl: "",
+        reviewCardTitle: "",
+        reviewCardText: "",
+        reviewCardButton: "",
+        feedbackCardTitle: "",
+        feedbackCardText: "",
+        feedbackCardButton: "",
+      },
       linkCode: null,
     });
     expectNoPrivateFields(plain, o);

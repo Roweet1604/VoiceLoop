@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { MapPin, LockKeyhole, ExternalLink, CircleCheck, LoaderCircle } from "lucide-react";
+import { MapPin, LockKeyhole, ExternalLink, CircleCheck, LoaderCircle, ArrowLeft } from "lucide-react";
+import LandingCards from "../components/LandingCards.jsx";
+import { resolveWording, isHttpsUrl } from "../lib/landingWording.js";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -20,10 +22,6 @@ const CATEGORIES = [
 
 const EMPTY = { message: "", customerName: "", customerEmail: "" };
 const VISIBLE_FIELDS = ["category", "message", "customerName", "customerEmail"];
-
-// The server validates the link too, so this is only a guard against
-// rendering anything but an https link.
-const isHttpsUrl = (value) => typeof value === "string" && value.startsWith("https://");
 
 // Public, no login: /f/:slug and /f/:slug/:code.
 export default function FeedbackPage() {
@@ -80,20 +78,42 @@ export default function FeedbackPage() {
 }
 
 function FeedbackForm({ business, slug, code, onUnavailable }) {
+  const reviewUrl = isHttpsUrl(business.googleReviewUrl) ? business.googleReviewUrl.trim() : null;
+  const wording = resolveWording(business);
+
+  // With a Google review link, customers first see two equal choices; without
+  // one, there's nothing to choose between, so the form shows directly.
+  const [view, setView] = useState(reviewUrl ? "landing" : "form");
   const [category, setCategory] = useState("general");
   const [sent, setSent] = useState(false);
   const [retryable, setRetryable] = useState(false);
   // One key per submission attempt, reused for every retry of that attempt and
-  // cleared only once the server has confirmed it.
+  // cleared only once the server has confirmed it. It survives switching back
+  // to the landing screen, like the text typed so far.
   const keyRef = useRef(null);
   const formRef = useRef(null);
   const successRef = useRef(null);
+  const formHeadingRef = useRef(null);
+  const landingRef = useRef(null);
+  const viewChanged = useRef(false);
 
   const { values, bind, handleSubmit, submitting, formError, reset } = useForm(EMPTY, validateFeedback);
 
   useEffect(() => {
     if (sent) successRef.current?.focus();
   }, [sent]);
+
+  // After switching views, move focus to the new view's heading so keyboard
+  // and screen reader users land in the right place (not on first load).
+  useEffect(() => {
+    if (!viewChanged.current) return;
+    (view === "form" ? formHeadingRef : landingRef).current?.focus();
+  }, [view]);
+
+  function showView(next) {
+    viewChanged.current = true;
+    setView(next);
+  }
 
   const onSubmit = handleSubmit(async (form) => {
     setRetryable(false);
@@ -140,7 +160,6 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
   });
 
   const messageLength = values.message.length;
-  const reviewUrl = isHttpsUrl(business.googleReviewUrl) ? business.googleReviewUrl : null;
 
   return (
     <PublicFrame>
@@ -157,117 +176,143 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
         )}
       </header>
 
-      {sent ? (
-        <Card>
-          <div ref={successRef} tabIndex={-1} role="status" className="outline-none">
-            <CircleCheck className="h-6 w-6 text-success" aria-hidden="true" />
-            <h2 className="mt-3 text-base font-semibold text-ink">Thank you, your feedback was sent</h2>
-            <p className="mt-1 text-sm text-ink-muted">It has gone privately to {business.name}.</p>
-          </div>
-          <Button variant="secondary" className="mt-5 w-full" onClick={() => setSent(false)}>
-            Send more feedback
-          </Button>
-        </Card>
+      {view === "landing" ? (
+        <section ref={landingRef} tabIndex={-1} aria-labelledby="landing-heading" className="outline-none">
+          <h2 id="landing-heading" className="sr-only">
+            How would you like to share your experience?
+          </h2>
+          <LandingCards wording={wording} reviewUrl={reviewUrl} onChooseFeedback={() => showView("form")} />
+        </section>
       ) : (
-        <Card>
-          <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
-            <h2 className="sr-only">Send feedback</h2>
+        <>
+          {reviewUrl && !sent && (
+            <button
+              type="button"
+              onClick={() => showView("landing")}
+              className="mb-3 inline-flex items-center gap-1 rounded-sm text-sm font-medium text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back
+            </button>
+          )}
 
-            <fieldset disabled={submitting}>
-              <legend className="text-sm font-medium text-ink">What is it about?</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {CATEGORIES.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex cursor-pointer items-center justify-center rounded-md border border-border-strong bg-surface px-3 py-2 text-center text-sm text-ink transition-colors hover:bg-subtle has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:checked]:text-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
-                  >
-                    <input
-                      type="radio"
-                      name="category"
-                      value={option.value}
-                      checked={category === option.value}
-                      onChange={() => setCategory(option.value)}
-                      className="sr-only"
-                    />
-                    {option.label}
-                  </label>
-                ))}
+          {sent ? (
+            <Card>
+              <div ref={successRef} tabIndex={-1} role="status" className="outline-none">
+                <CircleCheck className="h-6 w-6 text-success" aria-hidden="true" />
+                <h2 className="mt-3 text-base font-semibold text-ink">Thank you, your feedback was sent</h2>
+                <p className="mt-1 text-sm text-ink-muted">It has gone privately to {business.name}.</p>
               </div>
-              {bind("category").error && <p className="mt-1.5 text-xs text-danger">{bind("category").error}</p>}
-            </fieldset>
+              <Button variant="secondary" className="mt-5 w-full" onClick={() => setSent(false)}>
+                Send more feedback
+              </Button>
+            </Card>
+          ) : (
+            <Card>
+              <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
+                <h2 ref={formHeadingRef} tabIndex={-1} className="text-base font-semibold break-words text-ink outline-none">
+                  {wording.feedbackCardTitle}
+                </h2>
 
-            <TextField
-              label="Your feedback"
-              multiline
-              rows={5}
-              maxLength={FEEDBACK_MESSAGE_MAX}
-              placeholder="Tell us what happened or what we could do better"
-              hint={`${messageLength} / ${FEEDBACK_MESSAGE_MAX} characters`}
-              {...bind("message")}
-            />
+                <fieldset disabled={submitting}>
+                  <legend className="text-sm font-medium text-ink">What is it about?</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {CATEGORIES.map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex cursor-pointer items-center justify-center rounded-md border border-border-strong bg-surface px-3 py-2 text-center text-sm text-ink transition-colors hover:bg-subtle has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:checked]:text-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                      >
+                        <input
+                          type="radio"
+                          name="category"
+                          value={option.value}
+                          checked={category === option.value}
+                          onChange={() => setCategory(option.value)}
+                          className="sr-only"
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                  {bind("category").error && <p className="mt-1.5 text-xs text-danger">{bind("category").error}</p>}
+                </fieldset>
 
-            <p className="flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
-              <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span>
-                Your feedback goes privately to {business.name}. It's anonymous unless you add your name or email
-                below.
-              </span>
-            </p>
+                <TextField
+                  label="Your feedback"
+                  multiline
+                  rows={5}
+                  maxLength={FEEDBACK_MESSAGE_MAX}
+                  placeholder="Tell us what happened or what we could do better"
+                  hint={`${messageLength} / ${FEEDBACK_MESSAGE_MAX} characters`}
+                  {...bind("message")}
+                />
 
-            <fieldset disabled={submitting} className="space-y-4">
-              <legend className="sr-only">Contact details (optional)</legend>
-              <TextField
-                label="Name (optional)"
-                autoComplete="name"
-                maxLength={FEEDBACK_NAME_MAX}
-                {...bind("customerName")}
-              />
-              <TextField
-                label="Email (optional)"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                hint="Only if you'd like a reply."
-                {...bind("customerEmail")}
-              />
-            </fieldset>
+                <p className="flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
+                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    Your feedback goes privately to {business.name}. It's anonymous unless you add your name or email
+                    below.
+                  </span>
+                </p>
 
-            {formError && (
-              <Alert>
-                <p>{formError}</p>
-                {retryable && (
-                  <button
-                    type="button"
-                    onClick={() => formRef.current?.requestSubmit()}
-                    className="mt-1 font-medium underline underline-offset-2"
-                  >
-                    Try again
-                  </button>
+                <fieldset disabled={submitting} className="space-y-4">
+                  <legend className="sr-only">Contact details (optional)</legend>
+                  <TextField
+                    label="Name (optional)"
+                    autoComplete="name"
+                    maxLength={FEEDBACK_NAME_MAX}
+                    {...bind("customerName")}
+                  />
+                  <TextField
+                    label="Email (optional)"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    hint="Only if you'd like a reply."
+                    {...bind("customerEmail")}
+                  />
+                </fieldset>
+
+                {formError && (
+                  <Alert>
+                    <p>{formError}</p>
+                    {retryable && (
+                      <button
+                        type="button"
+                        onClick={() => formRef.current?.requestSubmit()}
+                        className="mt-1 font-medium underline underline-offset-2"
+                      >
+                        Try again
+                      </button>
+                    )}
+                  </Alert>
                 )}
-              </Alert>
-            )}
 
-            <Button type="submit" loading={submitting} className="w-full">
-              {submitting ? "Sending…" : "Send feedback"}
-            </Button>
-          </form>
-        </Card>
-      )}
+                <Button type="submit" loading={submitting} className="w-full">
+                  {submitting ? "Sending…" : "Send feedback"}
+                </Button>
+              </form>
+            </Card>
+          )}
 
-      {reviewUrl && (
-        <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-4 text-center">
-          <p className="text-sm text-ink-muted">You can also share your experience publicly.</p>
-          <a
-            href={reviewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-ink shadow-xs transition-colors hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Leave a Google review
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        </div>
+          {/* The review option stays available below the form and after sending,
+              whatever the customer chose or wrote. */}
+          {reviewUrl && (
+            <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-4 text-center">
+              <p className="text-sm break-words text-ink-muted">{wording.reviewCardTitle}</p>
+              <a
+                href={reviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-ink shadow-xs transition-colors hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {wording.reviewCardButton}
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">(opens Google in a new tab)</span>
+              </a>
+            </div>
+          )}
+        </>
       )}
     </PublicFrame>
   );

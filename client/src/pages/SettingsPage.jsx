@@ -4,6 +4,7 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
 import PublicLink from "../components/PublicLink.jsx";
+import WordingSettings from "../components/settings/WordingSettings.jsx";
 import { publicFeedbackUrl } from "../lib/publicUrl.js";
 import { useBusiness, useHandleAccessError } from "../context/BusinessContext.jsx";
 import { useForm } from "../hooks/useForm.js";
@@ -103,6 +104,8 @@ export default function SettingsPage() {
           </div>
         </form>
       </Card>
+
+      <WordingSettings />
 
       <Card className="mt-4">
         <h2 className="text-sm font-semibold text-ink">Public feedback link</h2>

@@ -16,13 +16,20 @@ export default function SetupPage() {
   const handleAccessError = useHandleAccessError();
   const navigate = useNavigate();
   const { logout, loggingOut, error: logoutError } = useLogout();
-  const { bind, handleSubmit, submitting, formError } = useForm({ name: "", locationName: "" }, validateBusiness);
+  const { bind, handleSubmit, submitting, formError } = useForm(
+    { name: "", locationName: "", googleReviewUrl: "" },
+    validateBusiness
+  );
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       const { business } = await api("/api/business", {
         method: "POST",
-        body: { name: values.name.trim(), locationName: values.locationName.trim() },
+        body: {
+          name: values.name.trim(),
+          locationName: values.locationName.trim(),
+          googleReviewUrl: values.googleReviewUrl.trim(),
+        },
       });
       setBusiness(business);
       navigate("/app/dashboard", { replace: true, state: { justCreated: true } });
@@ -61,6 +68,14 @@ export default function SetupPage() {
           hint="Helps customers recognise which branch they're reviewing, e.g. “Indiranagar”."
           maxLength={BUSINESS_LIMITS.locationName}
           {...bind("locationName")}
+        />
+        <TextField
+          label="Google review link (optional)"
+          type="url"
+          inputMode="url"
+          placeholder="https://g.page/r/…/review"
+          hint="Offered to every customer as a separate option. Must start with https://. You can add it later in Settings."
+          {...bind("googleReviewUrl")}
         />
 
         <Button type="submit" loading={submitting} className="w-full">

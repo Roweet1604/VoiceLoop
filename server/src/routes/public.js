@@ -47,6 +47,13 @@ function publicBusiness(business) {
     welcomeMessage: business.welcomeMessage,
     logoUrl: business.logoUrl,
     googleReviewUrl: business.googleReviewUrl,
+    // Landing-screen wording ("" = client default).
+    reviewCardTitle: business.reviewCardTitle,
+    reviewCardText: business.reviewCardText,
+    reviewCardButton: business.reviewCardButton,
+    feedbackCardTitle: business.feedbackCardTitle,
+    feedbackCardText: business.feedbackCardText,
+    feedbackCardButton: business.feedbackCardButton,
   };
 }
 
