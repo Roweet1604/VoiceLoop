@@ -52,14 +52,15 @@ export const STORED_FILES = [
 
 // Removes files after the database deletion committed. Failures are logged
 // with their keys so they can be removed by hand, but never undo or fail the
-// deletion: the database records are already gone.
-async function deleteStoredFiles(keys, organizationId) {
+// deletion: the database records are already gone. `what` says what was
+// deleted, for the log. Also used by services/retention.js.
+export async function deleteStoredFiles(keys, what) {
   const storage = getStorage();
   const results = await Promise.allSettled(keys.map((key) => storage.delete(key)));
   const failed = keys.filter((_, i) => results[i].status === "rejected");
   if (failed.length > 0) {
     console.error(
-      `[storage] account ${organizationId} deleted, but ${failed.length} file(s) could not be removed: ${failed.join(", ")}`,
+      `[storage] ${what}, but ${failed.length} file(s) could not be removed: ${failed.join(", ")}`,
       results.find((r) => r.status === "rejected").reason
     );
   }
@@ -146,6 +147,6 @@ export async function deleteOrganizationAccount({ organizationId, confirmName, a
     result = { organizationId: orgId, businessName: expectedName, deleted };
   });
 
-  result.files = await deleteStoredFiles(fileKeys, result.organizationId);
+  result.files = await deleteStoredFiles(fileKeys, `account ${result.organizationId} deleted`);
   return result;
 }

@@ -7,6 +7,7 @@ import Alert from "../components/ui/Alert.jsx";
 import { inputClasses } from "../components/ui/TextField.jsx";
 import { CategoryBadge, ComplaintStatusBadge, NewIndicator } from "../components/feedback/Badges.jsx";
 import ExportCsvButton from "../components/feedback/ExportCsvButton.jsx";
+import RetentionNotice from "../components/feedback/RetentionNotice.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
 import { formatDate, formatDuration, formatTime } from "../lib/format.js";
@@ -117,6 +118,7 @@ export default function FeedbackInboxPage() {
         <div>
           <h1 className="text-lg font-semibold text-ink">Feedback</h1>
           <p className="mt-1 text-sm text-ink-muted">Everything customers have sent you, newest first.</p>
+          <RetentionNotice retentionDays={data?.retentionDays} className="mt-1.5" />
         </div>
         <ExportCsvButton query={exportQuery} disabled={data?.total === 0} onAccessError={handleAccessError} />
       </div>

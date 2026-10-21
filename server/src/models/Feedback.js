@@ -87,6 +87,8 @@ feedbackSchema.index({ businessId: 1, submissionType: 1, submittedAt: -1 });
 feedbackSchema.index({ businessId: 1, transcriptStatus: 1, submittedAt: -1 });
 feedbackSchema.index({ businessId: 1, idempotencyKey: 1 }, { unique: true });
 feedbackSchema.index({ linkId: 1 });
+// Automatic deletion (services/retention.js) looks across all businesses.
+feedbackSchema.index({ submittedAt: 1 });
 
 // Voice feedback must carry its audio; text feedback never does.
 feedbackSchema.pre("validate", function () {

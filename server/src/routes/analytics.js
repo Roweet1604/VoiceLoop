@@ -7,6 +7,7 @@ import { ownBusiness } from "../services/ownBusiness.js";
 import { keywordCounts, KEYWORD_MIN_COUNT, KEYWORD_LIMIT } from "../services/keywords.js";
 import { analyticsQuery, analyticsRange } from "../validators/analytics.js";
 import { addDays, startOfLocalDay } from "../utils/timeZone.js";
+import { retentionDaysFrom } from "../services/retention.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 // Upper bound on complaints read for keyword counts in one request.
@@ -85,6 +86,7 @@ router.get("/", validate({ query: analyticsQuery }), async (req, res) => {
 
   res.json({
     range,
+    retentionDays: retentionDaysFrom(),
     total: facets.total[0]?.n ?? 0,
     volume: Array.from({ length: range.days }, (_, i) => {
       const date = addDays(range.from, i);

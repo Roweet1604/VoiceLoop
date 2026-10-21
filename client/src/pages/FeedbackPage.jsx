@@ -291,12 +291,9 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
             <Card>
               <div ref={successRef} tabIndex={-1} role="status" className="outline-none">
                 <CircleCheck className="h-6 w-6 text-success" aria-hidden="true" />
-                <h2 className="mt-3 text-base font-semibold text-ink">Thank you, your feedback was sent</h2>
-                <p className="mt-1 text-sm text-ink-muted">It has gone privately to {business.name}.</p>
+                <h2 className="mt-3 text-base font-semibold text-ink">Thank you!</h2>
+                <p className="mt-1 text-sm text-ink-muted">We appreciate you taking the time to share this.</p>
               </div>
-              <Button variant="secondary" className="mt-5 w-full" onClick={() => setSent(false)}>
-                Send more feedback
-              </Button>
             </Card>
           ) : (
             <Card>
@@ -427,9 +424,9 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
             </Card>
           )}
 
-          {/* The review option stays available below the form and after sending,
-              whatever the customer chose or wrote. */}
-          {reviewUrl && (
+          {/* The review option stays available below the form, whatever the
+              customer chose or wrote. The thank-you screen shows only thanks. */}
+          {reviewUrl && !sent && (
             <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-4 text-center">
               <p className="text-sm break-words text-ink-muted">{wording.reviewCardTitle}</p>
               <a

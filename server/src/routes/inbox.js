@@ -10,6 +10,7 @@ import { requireAuth, requireActiveAccess, requireOwner } from "../middleware/au
 import { getStorage, StorageNotFoundError } from "../services/storage/index.js";
 import { ownBusiness } from "../services/ownBusiness.js";
 import { feedbackFilter } from "../services/feedbackFilter.js";
+import { retentionDaysFrom } from "../services/retention.js";
 import {
   listFeedbackQuery,
   summaryQuery,
@@ -167,6 +168,7 @@ router.get("/summary", validate({ query: summaryQuery }), async (req, res) => {
       count: byLink.get(String(link._id)) ?? 0,
     })),
     unlinkedCount: byLink.get("null") ?? 0,
+    retentionDays: retentionDaysFrom(),
   });
 });
 
@@ -208,6 +210,7 @@ router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
     limit,
     total,
     totalPages: Math.max(1, Math.ceil(total / limit)),
+    retentionDays: retentionDaysFrom(),
   });
 });
 
@@ -216,7 +219,7 @@ router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
 router.get("/:id", async (req, res) => {
   const business = await ownBusiness(req);
   const feedback = await ownFeedback(business, req.params.id);
-  res.json({ feedback: await serializeDetail(feedback, business) });
+  res.json({ feedback: await serializeDetail(feedback, business), retentionDays: retentionDaysFrom() });
 });
 
 // The recording of a voice submission, streamed only to the owner of its

@@ -168,6 +168,17 @@ It then writes one AuditLog entry: `action: "account_deleted"`, `actor`, `target
 
 **Deletion rule.** Any new collection holding organization data must be added to `ORGANIZATION_DATA`, and any new stored file type to `STORED_FILES`. The test "covers every model" in `tests/deletion.test.js` fails for any model with an `organizationId` that isn't listed, and checks that no stored file remains under the deleted business's key prefix.
 
+### Automatic deletion (retention)
+
+`services/retention.js` deletes every Feedback document whose `submittedAt` is older than `RETENTION_DAYS` (default 45), whatever its review or complaint status, notes or history, with its recording. No other collection is touched.
+
+- **When:** once in the background at startup (after the server starts listening; it never delays or blocks startup), then every hour (`setInterval`, unref'd). A run that starts while another is still going in the same process is skipped. Errors are logged (`[retention] run failed: …`), never thrown.
+- **How:** batches of 200, oldest id first. For each batch the records are deleted (the filter repeats the cutoff, so nothing newer can match), then their audio files, through the same `deleteStoredFiles()` as account deletion: a file that can't be removed is logged with its key only, and the run continues.
+- **Audit:** a run that deleted something writes one AuditLog entry: `action: "retention.cleanup"`, `targetType: "Platform"`, no `actor` and no `targetId`, and `context { feedbackDeleted, audioFilesDeleted, cutoff }`. It holds no ids, customer text or emails and points at no organization, so account deletion has nothing to remove from it. The Super Admin audit log shows it as "System" / "All accounts". Runs that delete nothing write no entry.
+- **By hand:** `node scripts/run-retention.js --dry-run` prints how many items and audio files would be deleted and deletes nothing; without the flag it runs once, like the server does.
+- **Owners see it:** `retentionDays` is returned by `GET /api/feedback`, `GET /api/feedback/summary`, `GET /api/feedback/:id` and `GET /api/analytics`. The detail page shows "Deletes automatically in N days"; the inbox and analytics pages show a notice suggesting a CSV export.
+- The Privacy Policy and Terms state 45 days. If `RETENTION_DAYS` is changed in production, update those pages too.
+
 ## Businesses
 
 Each organization has at most one `Business` (unique index on `organizationId`): `name`, `locationName`, `welcomeMessage`, `googleReviewUrl`, `logoUrl` (not editable yet, always empty), `publicSlug`, `isActive`, and the landing-card text `reviewCardText` and `feedbackCardText` (≤160 each; empty = default).
@@ -351,6 +362,7 @@ Stack traces are never sent to the client. They are logged on the server. When `
 | `STORAGE_LOCAL_DIR` | No | `server/private-storage` | Folder for the local driver. Keep it outside any public path. Tests use a temporary folder. |
 | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only for `s3` | unset | Checked by the S3 stub; not used yet. |
 | `TRANSCRIPTION_PROVIDER` | No | `none`                 | Speech-to-text provider. Only `none` exists. |
+| `RETENTION_DAYS` | No | `45`                   | Feedback older than this is deleted automatically, with its recording. Whole number from 1 to 3650; anything else stops the server at startup. |
 | `EMAIL_PROVIDER` | No      | `console`               | `console` (development: prints emails to the log) or `resend`. |
 | `RESEND_API_KEY` | For `resend` | unset             | Resend API key. Secret: server only. |
 | `EMAIL_FROM`     | For `resend` | unset             | Sender, e.g. `VoiceLoop <no-reply@yourdomain.com>`, on a domain verified in Resend. |

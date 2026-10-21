@@ -7,6 +7,7 @@ import Alert from "../components/ui/Alert.jsx";
 import { inputClasses } from "../components/ui/TextField.jsx";
 import VolumeChart from "../components/analytics/VolumeChart.jsx";
 import BarTable from "../components/analytics/BarTable.jsx";
+import RetentionNotice from "../components/feedback/RetentionNotice.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
 import { formatDay, shiftDay, toDayString } from "../lib/format.js";
@@ -82,6 +83,7 @@ export default function AnalyticsPage() {
     <>
       <h1 className="text-lg font-semibold text-ink">Analytics</h1>
       <p className="mt-1 text-sm text-ink-muted">Counted from your stored feedback for the dates you choose.</p>
+      <RetentionNotice retentionDays={data?.retentionDays} className="mt-1.5" />
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-1" role="group" aria-label="Quick ranges">

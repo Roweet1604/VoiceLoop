@@ -3,6 +3,8 @@ import LegalLayout, { Section, List, Placeholder } from "../components/LegalLayo
 
 // Draft. Describes only what the product does today; keep it in step with
 // the code (for example, if transcription or a new data field is added).
+// "45 days" is the default RETENTION_DAYS (server/src/services/retention.js);
+// change it here too if the server is configured differently.
 export default function PrivacyPage() {
   return (
     <LegalLayout
@@ -116,10 +118,12 @@ export default function PrivacyPage() {
 
       <Section title="How long data is kept">
         <p>
-          Feedback and recordings are kept until they are deleted. How long data is kept is set by the business that
-          collects it and by the platform operator: <Placeholder>RETENTION POLICY</Placeholder>.
+          Feedback is deleted automatically 45 days after it was sent, together with its recording, notes and status
+          history, whether or not the business has dealt with it. Businesses can export a copy as a CSV file before then;
+          that copy is their responsibility.
         </p>
         <List>
+          <li>Feedback can be deleted sooner, as described below.</li>
           <li>
             When a business account is deleted, all of its data is deleted with it: its businesses, links, feedback, notes
             and voice recordings.

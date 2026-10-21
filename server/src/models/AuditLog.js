@@ -2,14 +2,22 @@ import mongoose from "mongoose";
 
 // Append-only record of significant actions. `context` holds non-sensitive
 // details only (statuses, dates, reasons), never passwords, tokens or hashes.
+//
+// targetType "Platform" marks entries written by the server itself (for
+// example "retention.cleanup"): they have no actor and no target id, and
+// belong to no organization.
+function notPlatformEntry() {
+  return this.targetType !== "Platform";
+}
+
 const auditLogSchema = new mongoose.Schema({
-  actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: [notPlatformEntry, "actor is required"] },
   // Snapshot so the log stays readable if the actor account is later removed.
   // Optional: some entries (account deletion) deliberately store no email.
   actorEmail: { type: String },
   action: { type: String, required: true }, // e.g. "access.approve"
   targetType: { type: String, required: true }, // e.g. "Organization"
-  targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  targetId: { type: mongoose.Schema.Types.ObjectId, required: [notPlatformEntry, "targetId is required"] },
   context: { type: mongoose.Schema.Types.Mixed, default: {} },
   createdAt: { type: Date, default: Date.now, immutable: true },
 });

@@ -20,6 +20,10 @@ export const SAFE_CONTEXT_KEYS = [
   "previousExpiresAt",
   "reason",
   "fields", // names of changed settings, never their values
+  // retention.cleanup: counts and the cutoff date only
+  "feedbackDeleted",
+  "audioFilesDeleted",
+  "cutoff",
 ];
 
 // Context fields matched by the audit-log text search (with `action`).

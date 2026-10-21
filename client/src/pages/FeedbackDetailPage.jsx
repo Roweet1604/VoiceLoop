@@ -10,6 +10,7 @@ import { CategoryBadge, ComplaintStatusBadge, NewIndicator } from "../components
 import VoiceMessage from "../components/feedback/VoiceMessage.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
+import { deletesIn } from "../components/feedback/RetentionNotice.jsx";
 import { formatDate, formatTime } from "../lib/format.js";
 import { COMPLAINT_STATUS_LABELS } from "../lib/feedbackLabels.js";
 
@@ -38,13 +39,15 @@ export default function FeedbackDetailPage() {
   const [busy, setBusy] = useState(null); // which action is in flight
   const [actionError, setActionError] = useState(null);
   const [resolving, setResolving] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(null);
   const backTo = `/app/feedback${location.state?.fromSearch ?? ""}`;
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, status: s.feedback ? "ready" : "loading", error: null }));
     try {
-      const { feedback } = await api(`/api/feedback/${encodeURIComponent(feedbackId)}`);
+      const { feedback, retentionDays } = await api(`/api/feedback/${encodeURIComponent(feedbackId)}`);
       setState({ status: "ready", feedback, error: null });
+      setRetentionDays(retentionDays ?? null);
     } catch (err) {
       handleAccessError(err);
       setState({ status: err.status === 404 ? "missing" : "error", feedback: null, error: err });
@@ -117,7 +120,10 @@ export default function FeedbackDetailPage() {
         {f.reviewStatus === "new" && <NewIndicator />}
       </div>
       <h1 className="mt-2 text-lg font-semibold text-ink">Feedback from {f.customerName || "an anonymous customer"}</h1>
-      <p className="mt-0.5 text-sm text-ink-muted">Received {when(f.submittedAt)}</p>
+      <p className="mt-0.5 text-sm text-ink-muted">
+        Received {when(f.submittedAt)}
+        {retentionDays && <> · {deletesIn(f.submittedAt, retentionDays)}</>}
+      </p>
 
       {actionError && <Alert className="mt-4">{actionError}</Alert>}
 

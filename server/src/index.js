@@ -5,6 +5,7 @@ import { assertSessionConfig } from "./utils/session.js";
 import { getStorage } from "./services/storage/index.js";
 import { getTranscriber } from "./services/transcription/index.js";
 import { getEmailSender, emailStatus } from "./services/email/index.js";
+import { retentionDaysFrom, startRetentionSchedule } from "./services/retention.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -22,10 +23,15 @@ getEmailSender();
 const email = emailStatus();
 (email.ok ? console.log : console.error)(`Email: ${email.message}`);
 
+// A bad RETENTION_DAYS could delete feedback early: refuse to start.
+console.log(`Retention: feedback is deleted automatically after ${retentionDaysFrom()} days`);
+
 const app = createApp();
 
 connectDB(process.env.MONGODB_URI)
   .catch((err) => console.error("MongoDB connection failed:", err.message))
   .finally(() => {
     app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+    // Not awaited: the first run happens in the background.
+    startRetentionSchedule();
   });

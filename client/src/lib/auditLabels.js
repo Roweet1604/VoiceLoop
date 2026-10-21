@@ -11,6 +11,7 @@ export const AUDIT_ACTION_LABELS = {
   account_deleted: "Deleted account",
   "business.created": "Created business",
   "business.updated": "Changed business settings",
+  "retention.cleanup": "Deleted expired feedback",
 };
 
 // accessHistory uses the bare action names.
@@ -63,6 +64,10 @@ export function describeAuditEntry({ action, context }) {
   if (["access.approve", "access.reactivate", "access.extend"].includes(action) && "toStatus" in context) {
     lines.push(accessUntil(context.accessExpiresAt));
     if (action === "access.extend" && context.previousExpiresAt) lines.push(`was ${formatDate(context.previousExpiresAt)}`);
+  }
+  if (action === "retention.cleanup") {
+    lines.push(`${context.feedbackDeleted} item(s), ${context.audioFilesDeleted} recording(s)`);
+    if (context.cutoff) lines.push(`Submitted before ${formatDate(context.cutoff)}`);
   }
   if (Array.isArray(context.fields) && context.fields.length > 0) {
     lines.push(`Changed ${context.fields.map((f) => FIELD_LABELS[f] ?? f).join(", ")}`);

@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import LegalLayout, { Section, List, Placeholder } from "../components/LegalLayout.jsx";
 
-// Draft. Describes only how the product works today.
+// Draft. Describes only how the product works today. "45 days" is the default
+// RETENTION_DAYS (server/src/services/retention.js).
 export default function TermsPage() {
   return (
     <LegalLayout
@@ -80,6 +81,10 @@ export default function TermsPage() {
           A business's feedback, links and settings belong to that business. We store and process them only to run
           VoiceLoop for that business. When an account is deleted, its data is deleted as described in the{" "}
           <Link to="/privacy" className="font-medium text-accent hover:underline">Privacy Policy</Link>.
+        </p>
+        <p>
+          Feedback and its recordings, notes and status history are deleted automatically 45 days after they were sent,
+          including complaints that are still open. Export a CSV file if you need to keep a copy for longer.
         </p>
       </Section>
 

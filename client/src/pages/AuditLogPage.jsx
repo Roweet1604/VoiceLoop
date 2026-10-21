@@ -201,17 +201,19 @@ export default function AuditLogPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-ink">{auditActionLabel(entry.action)}</td>
                   <td className="px-4 py-3">
-                    <div className="text-ink">{entry.actor?.name ?? "Unknown"}</div>
+                    <div className="text-ink">{entry.actor?.name ?? (entry.target.type === "Platform" ? "System" : "Unknown")}</div>
                     {entry.actor?.role && (
                       <div className="text-xs text-ink-muted">{entry.actor.role === "superadmin" ? "Super Admin" : "Owner"}</div>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="break-words text-ink">
-                      {entry.target.name ?? <span className="text-ink-muted">Unnamed</span>}
+                      {entry.target.type === "Platform"
+                        ? "All accounts"
+                        : (entry.target.name ?? <span className="text-ink-muted">Unnamed</span>)}
                       {entry.target.exists === false && <span className="ml-1 text-xs text-ink-muted">(deleted)</span>}
                     </div>
-                    {target !== String(entry.target.id) && (
+                    {entry.target.id && target !== String(entry.target.id) && (
                       <button
                         type="button"
                         onClick={() => update({ target: String(entry.target.id) })}
