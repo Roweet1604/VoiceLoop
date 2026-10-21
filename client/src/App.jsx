@@ -21,6 +21,8 @@ import FeedbackDetailPage from "./pages/FeedbackDetailPage.jsx";
 import AnalyticsPage from "./pages/AnalyticsPage.jsx";
 import FeedbackPage from "./pages/FeedbackPage.jsx";
 import SuperAdminPage from "./pages/SuperAdminPage.jsx";
+import AuditLogPage from "./pages/AuditLogPage.jsx";
+import SuperAdminLayout from "./components/super-admin/SuperAdminLayout.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
@@ -62,7 +64,10 @@ export default function App() {
         </Route>
 
         <Route path="/super-admin" element={<RequireSuperAdmin />}>
-          <Route index element={<SuperAdminPage />} />
+          <Route element={<SuperAdminLayout />}>
+            <Route index element={<SuperAdminPage />} />
+            <Route path="audit-logs" element={<AuditLogPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/super-admin" replace />} />
         </Route>
       </Route>

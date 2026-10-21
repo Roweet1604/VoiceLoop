@@ -107,6 +107,9 @@ All routes under `/api/super-admin` run `requireAuth` then `requireSuperAdmin`: 
 | `POST /accounts/:id/suspend` | `{ reason }` (required) | active | suspended |
 | `POST /accounts/:id/reactivate` | optional term as for approve | suspended | active; keeps the old end date unless a term is given, and requires one if the old end date has passed |
 | `POST /accounts/:id/extend` | `{ days: 1–3650 }` or `{ endDate }` | active (with an end date), expired | active; days are added to the current end date, or to today if it has passed; a new `endDate` must be later than the current one |
+| `GET /accounts/:id/history` | | any | `{ account { id, name }, accessHistory, auditEntries }`, newest first; `404` for unknown, malformed or deleted ids |
+| `GET /audit-logs` | query: `page`, `limit` (≤100, default 50), `action`, `targetId`, `from`, `to` (ISO), `q` (≤100) | | `{ entries, page, limit, total, totalPages, actions }`, newest first; `actions` lists every recorded action for the filter |
+| `GET /overview` | | | `{ accounts { pending, active, suspended, rejected, expired, expiringSoon }, businesses, feedback, voiceRecordings, audioBytes }` |
 
 - `endDate` is an ISO 8601 timestamp, must be in the future and within 10 years. The admin UI sends the end of the chosen day in the admin's time zone.
 - A change that doesn't fit the current status (e.g. approving an active account) returns `409 INVALID_TRANSITION` with an explanation. Unknown ids return `404`.
@@ -119,6 +122,12 @@ Every access change writes, in one MongoDB transaction:
 
 - an `accessHistory` entry on the organization: `action`, `fromStatus`, `toStatus`, `accessExpiresAt`, `by` (admin user id), `reason`, `at`;
 - an `AuditLog` document: `actor`, `actorEmail`, `action` (e.g. `access.approve`), `targetType`, `targetId`, `createdAt`, and a `context` with statuses, dates and the reason. No password data is ever written there.
+
+Owners' business changes are recorded too, in the same transaction as the change: `business.created` (context `businessName`) and `business.updated` (context `businessName` and `fields`, the names of the settings that actually changed, never their values; saving identical values records nothing). These target the owner's Organization, not the Business, so account deletion removes them with the rest of the organization's trail, and they store no `actorEmail`.
+
+**Reading the trail** (`services/auditLog.js`). Responses never pass stored entries through: each is `{ id, action, createdAt, actor { id, name, role }, target { type, id, name, exists }, context }`, where the actor's name is looked up (never an email, and `actorEmail` is never returned) and `context` keeps only keys on `SAFE_CONTEXT_KEYS`. The audit-log search `q` matches `action`, `context.organizationName`, `context.businessName` and `context.reason`, escaped so it's always literal. Signups are recorded only in `accessHistory` (`requested`), not as audit entries.
+
+`overview` counts accounts with the same effective-status rules as the account list. `audioBytes` is the sum of `audioSizeBytes` recorded at upload for voice feedback that still exists.
 
 Refused actions write nothing. Transactions need a replica set: MongoDB Atlas (including the free tier) has one, but a standalone local `mongod` doesn't, so access changes would fail there.
 
@@ -276,7 +285,8 @@ The owner's detail page fetches the recording with the session cookie and plays 
 | `/app/setup` | active owner without a business | Create the business |
 | `/app/dashboard`, `/app/feedback`, `/app/feedback/:feedbackId`, `/app/analytics`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
 | `/f/:slug`, `/f/:slug/:code` | none (public, outside the session gate) | Customer feedback form |
-| `/super-admin` | Super Admin | Account approvals |
+| `/super-admin` | Super Admin | Platform overview and the accounts table, with a History panel per account |
+| `/super-admin/audit-logs` | Super Admin | Filterable audit log |
 | `/health` | none | API reachability check |
 
 `BusinessGate` (in `context/BusinessContext.jsx`) loads the business for every `/app` page, sends owners without one to `/app/setup`, and re-checks the session on a `401`/`403` so revoked access lands on the waiting page.

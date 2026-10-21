@@ -1,10 +1,12 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { Business } from "../models/Business.js";
+import { recordOwnerAction } from "../services/auditLog.js";
 import { AppError } from "../utils/AppError.js";
 import { slugify, randomSuffix } from "../utils/slug.js";
 import { validate } from "../middleware/validate.js";
 import { requireAuth, requireActiveAccess, requireOwner } from "../middleware/auth.js";
-import { createBusinessBody, updateBusinessBody, pickBusinessFields } from "../validators/business.js";
+import { createBusinessBody, updateBusinessBody, pickBusinessFields, BUSINESS_FIELDS } from "../validators/business.js";
 import { ensureDefaultLink } from "../services/feedbackLinks.js";
 
 const SLUG_ATTEMPTS = 5;
@@ -57,7 +59,17 @@ router.post("/", validate({ body: createBusinessBody }), async (req, res) => {
     const publicSlug = attempt === 0 ? base : `${base}-${randomSuffix()}`;
     if (await Business.exists({ publicSlug })) continue;
     try {
-      const business = await Business.create({ ...fields, organizationId, publicSlug });
+      // The business and its audit entry are saved together or not at all.
+      let business;
+      await mongoose.connection.transaction(async (session) => {
+        [business] = await Business.create([{ ...fields, organizationId, publicSlug }], { session });
+        await recordOwnerAction({
+          user: req.user,
+          action: "business.created",
+          context: { businessName: business.name },
+          session,
+        });
+      });
       // Every business starts with a "Main link". If this fails, the link is
       // still created later by ensureDefaultLink (GET /api/links or the script).
       await ensureDefaultLink(business);
@@ -78,7 +90,20 @@ router.patch("/", validate({ body: updateBusinessBody }), async (req, res) => {
   // Only name, locationName, welcomeMessage and googleReviewUrl can change.
   // publicSlug is immutable, so a rename keeps the existing public link.
   Object.assign(business, pickBusinessFields(req.body));
-  await business.save();
+  // Which settings actually changed. The audit entry lists their names only,
+  // never the old or new text. Saving identical values records nothing.
+  const changed = BUSINESS_FIELDS.filter((field) => business.isModified(field));
+  if (changed.length > 0) {
+    await mongoose.connection.transaction(async (session) => {
+      await business.save({ session });
+      await recordOwnerAction({
+        user: req.user,
+        action: "business.updated",
+        context: { businessName: business.name, fields: changed },
+        session,
+      });
+    });
+  }
   res.json({ business: serializeBusiness(business) });
 });
 

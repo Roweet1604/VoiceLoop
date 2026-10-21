@@ -1,9 +1,18 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { requireAuth, requireSuperAdmin } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { changeAccess, listAccounts } from "../services/accountAccess.js";
+import { AuditLog } from "../models/AuditLog.js";
+import { Organization } from "../models/Organization.js";
+import { Business } from "../models/Business.js";
+import { Feedback } from "../models/Feedback.js";
+import { AppError } from "../utils/AppError.js";
+import { escapeRegex } from "../utils/regex.js";
+import { changeAccess, listAccounts, accessCounts } from "../services/accountAccess.js";
 import { deleteOrganizationAccount } from "../services/accountDeletion.js";
+import { serializeAuditEntries, userNames, personFrom, SEARCHABLE_CONTEXT_KEYS } from "../services/auditLog.js";
 import {
+  auditLogQuery,
   listQuery,
   deleteAccountBody,
   approveBody,
@@ -29,6 +38,96 @@ router.get("/accounts", validate({ query: listQuery }), async (req, res) => {
       limit: limit ? Number(limit) : 20,
     })
   );
+});
+
+// Real platform-wide counts. Audio bytes are the sizes recorded at upload
+// for recordings that still exist (deleted accounts' files are gone).
+router.get("/overview", async (req, res) => {
+  const [access, businesses, feedback, [audio]] = await Promise.all([
+    accessCounts(),
+    Business.countDocuments(),
+    Feedback.countDocuments(),
+    Feedback.aggregate([
+      { $match: { submissionType: "voice", audioKey: { $ne: null } } },
+      { $group: { _id: null, recordings: { $sum: 1 }, bytes: { $sum: "$audioSizeBytes" } } },
+    ]),
+  ]);
+  res.json({
+    accounts: access,
+    businesses,
+    feedback,
+    voiceRecordings: audio?.recordings ?? 0,
+    audioBytes: audio?.bytes ?? 0,
+  });
+});
+
+// The platform audit trail, newest first. `q` matches the action and a few
+// safe context fields literally (regex characters are escaped).
+router.get("/audit-logs", validate({ query: auditLogQuery }), async (req, res) => {
+  const { action, targetId, from, to, q } = req.query;
+  const page = Number(req.query.page ?? 1);
+  const limit = Number(req.query.limit ?? 50);
+
+  const filter = {};
+  if (action) filter.action = action;
+  if (targetId) filter.targetId = new mongoose.Types.ObjectId(targetId);
+  if (from || to) {
+    filter.createdAt = {};
+    if (from) filter.createdAt.$gte = new Date(from);
+    if (to) filter.createdAt.$lte = new Date(to);
+  }
+  if (q?.trim()) {
+    const pattern = { $regex: escapeRegex(q.trim()), $options: "i" };
+    filter.$or = [{ action: pattern }, ...SEARCHABLE_CONTEXT_KEYS.map((key) => ({ [`context.${key}`]: pattern }))];
+  }
+
+  const [total, entries, actions] = await Promise.all([
+    AuditLog.countDocuments(filter),
+    AuditLog.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    AuditLog.distinct("action"),
+  ]);
+
+  res.json({
+    entries: await serializeAuditEntries(entries),
+    page,
+    limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    actions: actions.sort(),
+  });
+});
+
+// One organization's access history and audit entries, newest first.
+// A deleted organization is a 404 here; its deletion entry remains in
+// /audit-logs.
+router.get("/accounts/:id/history", async (req, res) => {
+  const { id } = req.params;
+  const organization = mongoose.isValidObjectId(id) ? await Organization.findById(id).select("name accessHistory").lean() : null;
+  if (!organization) throw AppError.notFound("Account not found");
+
+  const entries = await AuditLog.find({ targetType: "Organization", targetId: organization._id })
+    .sort({ createdAt: -1, _id: -1 })
+    .limit(500)
+    .lean();
+  const names = await userNames(organization.accessHistory.map((h) => h.by));
+
+  res.json({
+    account: { id: organization._id, name: organization.name },
+    accessHistory: [...organization.accessHistory].reverse().map((h) => ({
+      action: h.action,
+      fromStatus: h.fromStatus,
+      toStatus: h.toStatus,
+      accessExpiresAt: h.accessExpiresAt,
+      reason: h.reason,
+      by: personFrom(names, h.by),
+      at: h.at,
+    })),
+    auditEntries: await serializeAuditEntries(entries),
+  });
 });
 
 const ACTION_VALIDATORS = {

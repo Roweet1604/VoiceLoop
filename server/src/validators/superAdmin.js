@@ -89,6 +89,41 @@ export function deleteAccountBody(body) {
   return {};
 }
 
+const OBJECT_ID = /^[a-f0-9]{24}$/i;
+const ACTION_PATTERN = /^[a-z][a-z0-9_.]{0,59}$/;
+
+// GET /audit-logs. Plain strings only, so operator objects and repeated
+// keys (arrays) are rejected.
+export function auditLogQuery(query) {
+  const errors = {};
+  for (const [key, max] of [["page", 10000], ["limit", 100]]) {
+    if (query[key] === undefined) continue;
+    const n = Number(query[key]);
+    if (typeof query[key] !== "string" || !/^\d+$/.test(query[key]) || n < 1 || n > max) {
+      errors[key] = `${key} must be a whole number from 1 to ${max}`;
+    }
+  }
+  if (query.action !== undefined && (typeof query.action !== "string" || !ACTION_PATTERN.test(query.action))) {
+    errors.action = "Invalid action";
+  }
+  if (query.targetId !== undefined && (typeof query.targetId !== "string" || !OBJECT_ID.test(query.targetId))) {
+    errors.targetId = "Target id must be a 24-character id";
+  }
+  if (query.q !== undefined && (typeof query.q !== "string" || query.q.length > 100)) {
+    errors.q = "Search must be text of at most 100 characters";
+  }
+  for (const key of ["from", "to"]) {
+    const value = query[key];
+    if (value !== undefined && (typeof value !== "string" || value.length > 40 || Number.isNaN(Date.parse(value)))) {
+      errors[key] = "Must be a valid date";
+    }
+  }
+  if (!errors.from && !errors.to && query.from && query.to && Date.parse(query.from) > Date.parse(query.to)) {
+    errors.to = "The end date must be after the start date";
+  }
+  return errors;
+}
+
 export function listQuery(query) {
   const errors = {};
   if (query.status !== undefined && query.status !== "all" && !ACCESS_STATUSES.includes(query.status)) {

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Search, LoaderCircle, RefreshCw, X, Trash2 } from "lucide-react";
-import AppHeader from "../components/AppHeader.jsx";
+import { Search, LoaderCircle, RefreshCw, X, Trash2, History } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -9,8 +8,10 @@ import { inputClasses } from "../components/ui/TextField.jsx";
 import StatusBadge from "../components/super-admin/StatusBadge.jsx";
 import AccountActionDialog, { ACTION_LABELS } from "../components/super-admin/AccountActionDialog.jsx";
 import DeleteAccountDialog, { confirmationName } from "../components/super-admin/DeleteAccountDialog.jsx";
+import AccountHistoryPanel from "../components/super-admin/AccountHistoryPanel.jsx";
+import OverviewStrip from "../components/super-admin/OverviewStrip.jsx";
 import { useAccounts } from "../hooks/useAccounts.js";
-import { useLogout } from "../hooks/useLogout.js";
+import { useSuperAdminData } from "../hooks/useSuperAdminData.js";
 import { formatDate } from "../lib/format.js";
 
 const PAGE_SIZE = 20;
@@ -55,7 +56,7 @@ function successMessage(account, action) {
 }
 
 export default function SuperAdminPage() {
-  const { logout, loggingOut, error: logoutError } = useLogout();
+  const overview = useSuperAdminData("/overview");
   const [searchParams, setSearchParams] = useSearchParams();
   const view = VIEWS.find((v) => v.id === searchParams.get("view")) ?? VIEWS[0];
   const q = searchParams.get("q") ?? "";
@@ -89,6 +90,7 @@ export default function SuperAdminPage() {
     setDialog(null);
     setNotice(successMessage(account, action));
     reload();
+    overview.reload();
   }
 
   // Called only after the server confirmed the deletion.
@@ -97,6 +99,7 @@ export default function SuperAdminPage() {
     removeAccount(account.id);
     setNotice(`Deleted ${confirmationName(account)} and all its data permanently.`);
     reload(); // refresh the counts in the view tabs
+    overview.reload();
   }
 
   const counts = data?.counts;
@@ -105,12 +108,10 @@ export default function SuperAdminPage() {
   const lastShown = data ? Math.min(data.page * data.limit, data.total) : 0;
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <AppHeader label="Super Admin" onLogout={logout} loggingOut={loggingOut} maxWidth="max-w-6xl" />
+    <>
+      <OverviewStrip overview={overview} />
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        {logoutError && <Alert className="mb-4">{logoutError}</Alert>}
-
+      <div className="mt-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-lg font-semibold text-ink">Accounts</h1>
@@ -182,7 +183,7 @@ export default function SuperAdminPage() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[56rem] text-left text-sm">
+            <table className="w-full min-w-[62rem] text-left text-sm">
               <thead className="border-b border-border bg-canvas text-xs font-medium text-ink-muted">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">Business</th>
@@ -250,12 +251,13 @@ export default function SuperAdminPage() {
             </div>
           )}
         </Card>
-      </main>
+      </div>
 
+      {dialog?.action === "history" && <AccountHistoryPanel account={dialog.account} onClose={() => setDialog(null)} />}
       {dialog?.action === "delete" && (
         <DeleteAccountDialog account={dialog.account} onClose={() => setDialog(null)} onDeleted={handleDeleted} />
       )}
-      {dialog && dialog.action !== "delete" && (
+      {dialog && dialog.action !== "delete" && dialog.action !== "history" && (
         <AccountActionDialog
           account={dialog.account}
           action={dialog.action}
@@ -263,7 +265,7 @@ export default function SuperAdminPage() {
           onDone={handleDone}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -320,6 +322,15 @@ function AccountRow({ account, onAction }) {
               {ACTION_LABELS[action]}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onAction("history")}
+            aria-label={`History of ${account.businessName ?? account.name}`}
+          >
+            <History className="h-3.5 w-3.5" aria-hidden="true" />
+            History
+          </Button>
           {/* Kept apart from the routine actions so it isn't clicked by habit. */}
           <span className="ml-1.5 border-l border-border pl-1.5">
             <Button

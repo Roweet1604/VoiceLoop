@@ -173,7 +173,7 @@ export async function changeAccess({ organizationId, action, body, actor }) {
 
 
 // MongoDB version of effectiveAccessStatus(); keep the two in sync.
-function effectiveStatusExpression(now) {
+export function effectiveStatusExpression(now) {
   return {
     $switch: {
       branches: [
@@ -184,6 +184,27 @@ function effectiveStatusExpression(now) {
       default: "active",
     },
   };
+}
+
+// Organizations per effective status, plus active ones whose access ends
+// within EXPIRING_SOON_DAYS. The same rules as the account list's counts.
+export async function accessCounts(now = new Date()) {
+  const [result] = await Organization.aggregate([
+    { $project: { accessExpiresAt: 1, effectiveStatus: effectiveStatusExpression(now) } },
+    {
+      $facet: {
+        byStatus: [{ $group: { _id: "$effectiveStatus", n: { $sum: 1 } } }],
+        expiringSoon: [
+          { $match: { effectiveStatus: "active", accessExpiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) } } },
+          { $count: "n" },
+        ],
+      },
+    },
+  ]);
+  const counts = Object.fromEntries(ACCESS_STATUSES.map((s) => [s, 0]));
+  for (const { _id, n } of result.byStatus) counts[_id] = n;
+  counts.expiringSoon = result.expiringSoon[0]?.n ?? 0;
+  return counts;
 }
 
 export async function listAccounts({ status = "all", q = "", expiring = false, page = 1, limit = 20 }) {
