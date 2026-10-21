@@ -45,12 +45,14 @@ export function createApp({ limits = {} } = {}) {
   app.use("/api/links", linksRouter);
   app.use("/api/feedback", inboxRouter);
   // Public endpoints get their own, tighter per-IP limit on top of the API-wide
-  // one, and feedback submission a much stricter one again.
+  // one, feedback submission a much stricter one again, and voice uploads
+  // (up to 5 MB each) the strictest.
   app.use(
     "/api/public",
     createLimiter({ windowMs: ONE_MINUTE, limit: limits.public ?? 60 }),
     createPublicRouter({
       submitLimiter: createLimiter({ windowMs: TEN_MINUTES, limit: limits.submit ?? 10 }),
+      voiceLimiter: createLimiter({ windowMs: TEN_MINUTES, limit: limits.voice ?? 5 }),
     })
   );
 

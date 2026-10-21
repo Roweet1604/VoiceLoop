@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
-import { Search, LoaderCircle, RefreshCw } from "lucide-react";
+import { Search, LoaderCircle, RefreshCw, Mic } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -8,12 +8,18 @@ import { inputClasses } from "../components/ui/TextField.jsx";
 import { CategoryBadge, ComplaintStatusBadge, NewIndicator } from "../components/feedback/Badges.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
-import { formatDate, formatTime } from "../lib/format.js";
-import { CATEGORY_LABELS, COMPLAINT_STATUS_LABELS, REVIEW_STATUS_LABELS } from "../lib/feedbackLabels.js";
+import { formatDate, formatDuration, formatTime } from "../lib/format.js";
+import {
+  CATEGORY_LABELS,
+  COMPLAINT_STATUS_LABELS,
+  REVIEW_STATUS_LABELS,
+  SUBMISSION_TYPE_LABELS,
+  TRANSCRIPT_STATUS_LABELS,
+} from "../lib/feedbackLabels.js";
 
 const PAGE_SIZE = 20;
 const SEARCH_DELAY_MS = 300;
-const FILTER_KEYS = ["q", "category", "review", "complaint", "link", "from", "to"];
+const FILTER_KEYS = ["q", "category", "review", "complaint", "type", "transcript", "link", "from", "to"];
 
 // <input type="date"> values are local days; send the matching instants.
 const startOfDay = (value) => {
@@ -28,7 +34,15 @@ const endOfDay = (value) => {
 // URL filters -> API query.
 function apiQuery(params) {
   const query = new URLSearchParams({ page: params.get("page") || "1", limit: String(PAGE_SIZE) });
-  const map = { q: "q", category: "category", review: "reviewStatus", complaint: "complaintStatus", link: "linkId" };
+  const map = {
+    q: "q",
+    category: "category",
+    review: "reviewStatus",
+    complaint: "complaintStatus",
+    type: "submissionType",
+    transcript: "transcriptStatus",
+    link: "linkId",
+  };
   for (const [key, apiKey] of Object.entries(map)) {
     const value = params.get(key);
     if (value) query.set(apiKey, value);
@@ -106,20 +120,24 @@ export default function FeedbackInboxPage() {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search feedback text"
-            aria-label="Search feedback text"
+            placeholder="Search feedback text and transcripts"
+            aria-label="Search feedback text and transcripts"
             maxLength={200}
             className={`${inputClasses} border-border-strong pl-9`}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           <FilterSelect label="Category" value={params.get("category")} onChange={(v) => update({ category: v })}
             options={Object.entries(CATEGORY_LABELS)} />
           <FilterSelect label="Review" value={params.get("review")} onChange={(v) => update({ review: v })}
             options={Object.entries(REVIEW_STATUS_LABELS)} />
           <FilterSelect label="Complaint status" value={params.get("complaint")} onChange={(v) => update({ complaint: v })}
             options={Object.entries(COMPLAINT_STATUS_LABELS)} />
+          <FilterSelect label="Type" value={params.get("type")} onChange={(v) => update({ type: v })}
+            options={Object.entries(SUBMISSION_TYPE_LABELS)} />
+          <FilterSelect label="Transcription" value={params.get("transcript")} onChange={(v) => update({ transcript: v })}
+            options={Object.entries(TRANSCRIPT_STATUS_LABELS)} />
           <FilterSelect label="Source" value={params.get("link")} onChange={(v) => update({ link: v })}
             options={links.map((l) => [l.id, l.isActive ? l.name : `${l.name} (inactive)`])} />
           <DateFilter label="From" value={params.get("from")} max={params.get("to")} onChange={(v) => update({ from: v })} />
@@ -216,7 +234,17 @@ export default function FeedbackInboxPage() {
                       onClick={(e) => e.stopPropagation()}
                       className={`line-clamp-2 break-words hover:underline ${item.reviewStatus === "new" ? "font-medium text-ink" : "text-ink"}`}
                     >
-                      {item.excerpt}
+                      {item.submissionType === "voice" ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Mic className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden="true" />
+                          Voice message
+                          {item.audioDurationSec != null && (
+                            <span className="font-normal text-ink-muted">· {formatDuration(item.audioDurationSec)}</span>
+                          )}
+                        </span>
+                      ) : (
+                        item.excerpt
+                      )}
                     </Link>
                     <div className="mt-0.5 text-xs text-ink-muted">{item.customerName || "Anonymous"}</div>
                   </td>

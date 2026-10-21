@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { pipeline } from "node:stream/promises";
 import mongoose from "mongoose";
 import { Business } from "../models/Business.js";
 import { FeedbackLink } from "../models/FeedbackLink.js";
@@ -8,6 +9,7 @@ import { AppError } from "../utils/AppError.js";
 import { escapeRegex } from "../utils/regex.js";
 import { validate } from "../middleware/validate.js";
 import { requireAuth, requireActiveAccess, requireOwner } from "../middleware/auth.js";
+import { getStorage, StorageNotFoundError } from "../services/storage/index.js";
 import {
   listFeedbackQuery,
   summaryQuery,
@@ -64,6 +66,15 @@ async function serializeDetail(feedback, business) {
     customerName: feedback.customerName,
     customerEmail: feedback.customerEmail,
     submissionType: feedback.submissionType,
+    // Metadata only: the storage key never leaves the server. The recording
+    // itself comes from GET /api/feedback/:id/audio.
+    audio:
+      feedback.submissionType === "voice"
+        ? { mimeType: feedback.audioMimeType, sizeBytes: feedback.audioSizeBytes, durationSec: feedback.audioDurationSec }
+        : null,
+    transcriptStatus: feedback.transcriptStatus,
+    // Only a completed transcription has text; nothing is ever made up.
+    transcriptText: feedback.transcriptStatus === "completed" ? feedback.transcriptText : "",
     reviewStatus: feedback.reviewStatus,
     complaintStatus: feedback.complaintStatus,
     resolutionSummary: feedback.resolutionSummary,
@@ -167,9 +178,11 @@ router.get("/summary", validate({ query: summaryQuery }), async (req, res) => {
 
 // --- List ----------------------------------------------------------------------
 
+const excerptOf = (text) => (text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH).trimEnd()}…` : text);
+
 router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
   const business = await ownBusiness(req);
-  const { q, category, reviewStatus, complaintStatus, linkId, from, to } = req.query;
+  const { q, category, reviewStatus, complaintStatus, submissionType, transcriptStatus, linkId, from, to } = req.query;
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
 
@@ -178,14 +191,20 @@ router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
   if (category) filter.category = category;
   if (reviewStatus) filter.reviewStatus = reviewStatus;
   if (complaintStatus) filter.complaintStatus = complaintStatus;
+  if (submissionType) filter.submissionType = submissionType;
+  if (transcriptStatus) filter.transcriptStatus = transcriptStatus;
   if (linkId) filter.linkId = new mongoose.Types.ObjectId(linkId);
   if (from || to) {
     filter.submittedAt = {};
     if (from) filter.submittedAt.$gte = new Date(from);
     if (to) filter.submittedAt.$lte = new Date(to);
   }
-  // Search input is escaped, so it always matches literally.
-  if (q?.trim()) filter.message = { $regex: escapeRegex(q.trim()), $options: "i" };
+  // Search input is escaped, so it always matches literally. Transcripts are
+  // searched too (only completed ones have text).
+  if (q?.trim()) {
+    const pattern = { $regex: escapeRegex(q.trim()), $options: "i" };
+    filter.$or = [{ message: pattern }, { transcriptText: pattern }];
+  }
 
   const [total, items, links] = await Promise.all([
     Feedback.countDocuments(filter),
@@ -193,7 +212,7 @@ router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
       .sort({ submittedAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .select("category message customerName reviewStatus complaintStatus submittedAt linkId")
+      .select("category message customerName submissionType audioDurationSec transcriptStatus reviewStatus complaintStatus submittedAt linkId")
       .lean(),
     FeedbackLink.find({ businessId: business._id }).select("name").lean(),
   ]);
@@ -205,6 +224,9 @@ router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
       category: f.category,
       excerpt: f.message.length > EXCERPT_LENGTH ? `${f.message.slice(0, EXCERPT_LENGTH).trimEnd()}â€¦` : f.message,
       customerName: f.customerName,
+      submissionType: f.submissionType,
+      audioDurationSec: f.audioDurationSec ?? null,
+      transcriptStatus: f.transcriptStatus ?? null,
       reviewStatus: f.reviewStatus,
       complaintStatus: f.complaintStatus,
       submittedAt: f.submittedAt,
@@ -223,6 +245,40 @@ router.get("/:id", async (req, res) => {
   const business = await ownBusiness(req);
   const feedback = await ownFeedback(business, req.params.id);
   res.json({ feedback: await serializeDetail(feedback, business) });
+});
+
+// The recording of a voice submission, streamed only to the owner of its
+// business. Anything else (text feedback, another tenant's id, a missing
+// file) is the same 404.
+router.get("/:id/audio", async (req, res) => {
+  const business = await ownBusiness(req);
+  const feedback = await ownFeedback(business, req.params.id);
+  if (feedback.submissionType !== "voice" || !feedback.audioKey) throw AppError.notFound("Recording not found");
+
+  let audio;
+  try {
+    audio = await getStorage().getStream(feedback.audioKey);
+  } catch (err) {
+    if (err instanceof StorageNotFoundError) {
+      console.error(`[storage] audio missing for feedback ${feedback._id}`);
+      throw AppError.notFound("Recording not found");
+    }
+    throw err;
+  }
+
+  res.set({
+    "Content-Type": feedback.audioMimeType,
+    "Content-Length": String(audio.sizeBytes),
+    "Cache-Control": "private, no-store",
+    "Content-Disposition": "inline",
+  });
+  try {
+    await pipeline(audio.stream, res);
+  } catch (err) {
+    // Usually the browser went away mid-download; nothing left to answer.
+    if (!res.headersSent) throw err;
+    res.destroy();
+  }
 });
 
 // The update only applies if the field still has the value we read, so two

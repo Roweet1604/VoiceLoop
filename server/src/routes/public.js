@@ -7,7 +7,11 @@ import { AppError } from "../utils/AppError.js";
 import { SLUG_PATTERN } from "../utils/slug.js";
 import { LINK_CODE_PATTERN } from "../services/feedbackLinks.js";
 import { validate } from "../middleware/validate.js";
-import { submitFeedbackBody } from "../validators/feedback.js";
+import { submitFeedbackBody, submitVoiceBody } from "../validators/feedback.js";
+import { receiveAudio } from "../middleware/audioUpload.js";
+import { inspectAudio } from "../services/audioFile.js";
+import { getStorage, newAudioKey } from "../services/storage/index.js";
+import { initialTranscriptStatus } from "../services/transcription/index.js";
 
 // One response for every "can't show this" case (unknown slug or link code,
 // inactive business or link, organization not active or expired), so the
@@ -53,8 +57,11 @@ function publicBusiness(business) {
   };
 }
 
+// Both submit routes answer the same way, with no ids, keys or paths.
+const confirmation = (res, feedback) => res.status(201).json({ submitted: true, submittedAt: feedback.submittedAt });
+
 // Unauthenticated endpoints used by the customer-facing feedback page.
-export function createPublicRouter({ submitLimiter }) {
+export function createPublicRouter({ submitLimiter, voiceLimiter }) {
   const router = Router();
 
   // Don't let browsers or proxies keep serving a page after access ends.
@@ -82,7 +89,7 @@ export function createPublicRouter({ submitLimiter }) {
 
     // The same key for the same business means a retry of a submission that
     // was already stored: answer exactly as the first time, store nothing.
-    const respond = (feedback) => res.status(201).json({ submitted: true, submittedAt: feedback.submittedAt });
+    const respond = (feedback) => confirmation(res, feedback);
 
     const previous = await Feedback.findOne({ businessId: business._id, idempotencyKey });
     if (previous) return respond(previous);
@@ -111,6 +118,63 @@ export function createPublicRouter({ submitLimiter }) {
       throw err;
     }
   });
+
+  // Multipart: the text fields below plus one "audio" file. The business is
+  // checked before the upload is read, so unknown pages cost no buffering.
+  router.post(
+    "/f/:slug/submit-voice",
+    voiceLimiter,
+    async (req, res, next) => {
+      req.publicBusiness = await findPublicBusiness(req.params.slug);
+      next();
+    },
+    receiveAudio,
+    validate({ body: submitVoiceBody }),
+    async (req, res) => {
+      const business = req.publicBusiness;
+      const { category, customerName, customerEmail, linkCode, idempotencyKey, durationSec } = req.body;
+      const link = await findPublicLink(business, linkCode || null);
+      const audio = inspectAudio(req.file, Number(durationSec));
+      const respond = (feedback) => confirmation(res, feedback);
+
+      // A retry of a stored submission: answer as before, store no second file.
+      const previous = await Feedback.findOne({ businessId: business._id, idempotencyKey });
+      if (previous) return respond(previous);
+
+      const storage = getStorage();
+      const audioKey = newAudioKey(business._id, audio.extension);
+      await storage.put(audioKey, req.file.buffer);
+
+      try {
+        const feedback = await Feedback.create({
+          businessId: business._id,
+          organizationId: business.organizationId,
+          linkId: link?._id ?? null,
+          category,
+          customerName: customerName?.trim() ?? "",
+          customerEmail: customerEmail?.trim() ?? "",
+          submissionType: "voice",
+          audioKey,
+          audioMimeType: audio.mimeType,
+          audioSizeBytes: audio.sizeBytes,
+          audioDurationSec: Math.round(Number(durationSec) * 10) / 10,
+          transcriptStatus: initialTranscriptStatus(),
+          complaintStatus: category === "complaint" ? "open" : null,
+          idempotencyKey,
+        });
+        return respond(feedback);
+      } catch (err) {
+        // Nothing references the file now, so it must not stay in storage.
+        await storage.delete(audioKey).catch((cleanupErr) => {
+          console.error("[storage] couldn't remove the audio of a failed voice submission", cleanupErr);
+        });
+        if (err.code === 11000 && err.keyPattern?.idempotencyKey) {
+          return respond(await Feedback.findOne({ businessId: business._id, idempotencyKey }));
+        }
+        throw err;
+      }
+    }
+  );
 
   return router;
 }

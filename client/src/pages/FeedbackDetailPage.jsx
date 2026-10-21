@@ -7,6 +7,7 @@ import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
 import Dialog, { DialogFooter } from "../components/ui/Dialog.jsx";
 import { CategoryBadge, ComplaintStatusBadge, NewIndicator } from "../components/feedback/Badges.jsx";
+import VoiceMessage from "../components/feedback/VoiceMessage.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
 import { formatDate, formatTime } from "../lib/format.js";
@@ -122,10 +123,20 @@ export default function FeedbackDetailPage() {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-4">
-          <Card>
-            <h2 className="sr-only">Message</h2>
-            <p className="text-sm whitespace-pre-wrap break-words text-ink">{f.message}</p>
-          </Card>
+          {f.submissionType === "voice" && f.audio ? (
+            <VoiceMessage
+              feedbackId={f.id}
+              audio={f.audio}
+              transcriptStatus={f.transcriptStatus}
+              transcriptText={f.transcriptText}
+              onAccessError={handleAccessError}
+            />
+          ) : (
+            <Card>
+              <h2 className="sr-only">Message</h2>
+              <p className="text-sm whitespace-pre-wrap break-words text-ink">{f.message}</p>
+            </Card>
+          )}
 
           <NotesCard
             notes={f.internalNotes}
@@ -139,6 +150,7 @@ export default function FeedbackDetailPage() {
           <Card className="p-5">
             <h2 className="text-sm font-semibold text-ink">Details</h2>
             <dl className="mt-3 space-y-2.5 text-sm">
+              <Detail label="Type">{f.submissionType === "voice" ? "Voice message" : "Written"}</Detail>
               <Detail label="Source">
                 {f.link ? (
                   <>

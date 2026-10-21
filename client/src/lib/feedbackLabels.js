@@ -18,3 +18,15 @@ export const REVIEW_STATUS_LABELS = {
   new: "New",
   reviewed: "Reviewed",
 };
+
+export const SUBMISSION_TYPE_LABELS = {
+  text: "Text",
+  voice: "Voice",
+};
+
+export const TRANSCRIPT_STATUS_LABELS = {
+  unavailable: "Unavailable",
+  processing: "Processing",
+  completed: "Completed",
+  failed: "Failed",
+};

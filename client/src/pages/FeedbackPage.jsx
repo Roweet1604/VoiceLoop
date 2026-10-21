@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { MapPin, LockKeyhole, ExternalLink, CircleCheck, LoaderCircle, ArrowLeft } from "lucide-react";
+import { MapPin, LockKeyhole, ExternalLink, CircleCheck, LoaderCircle, ArrowLeft, PenLine, Mic } from "lucide-react";
 import LandingCards from "../components/LandingCards.jsx";
 import { resolveWording, isHttpsUrl } from "../lib/landingWording.js";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
+import VoiceRecorder, { UploadProgress } from "../components/feedback/VoiceRecorder.jsx";
 import { useForm } from "../hooks/useForm.js";
-import { api } from "../lib/api.js";
+import { useVoiceRecorder, voiceRecordingSupport, baseType } from "../hooks/useVoiceRecorder.js";
+import { api, apiUpload } from "../lib/api.js";
 import { newIdempotencyKey } from "../lib/idempotency.js";
-import { validateFeedback, FEEDBACK_MESSAGE_MAX, FEEDBACK_NAME_MAX } from "../lib/validation.js";
+import {
+  validateFeedback,
+  validateVoiceFeedback,
+  FEEDBACK_MESSAGE_MAX,
+  FEEDBACK_NAME_MAX,
+} from "../lib/validation.js";
 
 const CATEGORIES = [
   { value: "general", label: "General" },
@@ -20,8 +27,15 @@ const CATEGORIES = [
   { value: "other", label: "Other" },
 ];
 
+const MODES = [
+  { value: "text", label: "Write", Icon: PenLine },
+  { value: "voice", label: "Record voice", Icon: Mic },
+];
+
 const EMPTY = { message: "", customerName: "", customerEmail: "" };
 const VISIBLE_FIELDS = ["category", "message", "customerName", "customerEmail"];
+const AUDIO_FIELDS = ["audio", "durationSec"];
+const FILE_EXTENSIONS = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav" };
 
 // Public, no login: /f/:slug and /f/:slug/:code.
 export default function FeedbackPage() {
@@ -85,8 +99,13 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
   // one, there's nothing to choose between, so the form shows directly.
   const [view, setView] = useState(reviewUrl ? "landing" : "form");
   const [category, setCategory] = useState("general");
+  // Text is always available; voice is an alternative, never a requirement.
+  const [mode, setMode] = useState("text");
   const [sent, setSent] = useState(false);
   const [retryable, setRetryable] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const recorder = useVoiceRecorder();
+  const voiceSupport = useMemo(voiceRecordingSupport, []);
   // One key per submission attempt, reused for every retry of that attempt and
   // cleared only once the server has confirmed it. It survives switching back
   // to the landing screen, like the text typed so far.
@@ -97,7 +116,25 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
   const landingRef = useRef(null);
   const viewChanged = useRef(false);
 
-  const { values, bind, handleSubmit, submitting, formError, reset } = useForm(EMPTY, validateFeedback);
+  const { values, bind, handleSubmit, submitting, formError, reset } = useForm(
+    EMPTY,
+    mode === "voice" ? validateVoiceFeedback : validateFeedback
+  );
+
+  // A key belongs to one exact submission. A new or discarded recording is a
+  // different submission, so it must never reuse the key of an earlier one.
+  useEffect(() => {
+    keyRef.current = null;
+    setRetryable(false);
+  }, [recorder.recording]);
+
+  function switchMode(next) {
+    if (next === mode) return;
+    keyRef.current = null;
+    setRetryable(false);
+    reset(values); // clears errors from the other mode, keeps what was typed
+    setMode(next);
+  }
 
   useEffect(() => {
     if (sent) successRef.current?.focus();
@@ -115,47 +152,92 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
     setView(next);
   }
 
+  // Maps a failed submission to what the customer sees. Throwing makes useForm
+  // show the message (or the field errors) on the form.
+  function failed(err) {
+    if (err.status === 404) {
+      onUnavailable();
+      return;
+    }
+    if (err.status === 429) {
+      throw new Error("You've sent several messages in a short time. Please wait a few minutes, then try again.");
+    }
+    if (err.status === 413 || (err.details && AUDIO_FIELDS.some((field) => err.details[field]))) {
+      // Nothing was stored, and this recording can't be sent as it is.
+      keyRef.current = null;
+      // Server messages have no final period.
+      const reason = err.details?.audio ?? err.details?.durationSec ?? "The recording is too large";
+      throw new Error(`${reason}. Please record your message again, or write it instead.`);
+    }
+    if (err.details && Object.keys(err.details).some((field) => !VISIBLE_FIELDS.includes(field))) {
+      keyRef.current = null;
+      throw new Error("Something went wrong on our side. Please try again.");
+    }
+    if (err.code === "NETWORK_ERROR" || err.status >= 500) {
+      // The request may or may not have reached the server. Retrying with
+      // the same key is safe: it can't create a second copy.
+      setRetryable(true);
+      throw new Error("We couldn't confirm that your feedback was sent. Please try again; it won't be sent twice.");
+    }
+    throw err;
+  }
+
+  function sendText(form) {
+    return api(`/api/public/f/${encodeURIComponent(slug)}/submit`, {
+      method: "POST",
+      body: {
+        category,
+        message: form.message.trim(),
+        customerName: form.customerName.trim(),
+        customerEmail: form.customerEmail.trim(),
+        ...(code && { linkCode: code }),
+        idempotencyKey: keyRef.current,
+      },
+    });
+  }
+
+  async function sendVoice(form) {
+    const { recording } = recorder;
+    const data = new FormData();
+    data.append("category", category);
+    if (form.customerName.trim()) data.append("customerName", form.customerName.trim());
+    if (form.customerEmail.trim()) data.append("customerEmail", form.customerEmail.trim());
+    if (code) data.append("linkCode", code);
+    data.append("idempotencyKey", keyRef.current);
+    data.append("durationSec", Math.max(recording.durationSec, 0.1).toFixed(1));
+    data.append("audio", recording.blob, `recording.${FILE_EXTENSIONS[baseType(recording.mimeType)] ?? "webm"}`);
+
+    setUploadProgress(0);
+    try {
+      return await apiUpload(`/api/public/f/${encodeURIComponent(slug)}/submit-voice`, data, {
+        onProgress: setUploadProgress,
+      });
+    } finally {
+      setUploadProgress(null);
+    }
+  }
+
   const onSubmit = handleSubmit(async (form) => {
     setRetryable(false);
+    if (mode === "voice" && recorder.status !== "recorded") {
+      throw new Error(
+        recorder.status === "recording" ? "Stop the recording first, then send it." : "Record your message first, or switch to Write."
+      );
+    }
     if (!keyRef.current) keyRef.current = newIdempotencyKey();
 
     try {
-      await api(`/api/public/f/${encodeURIComponent(slug)}/submit`, {
-        method: "POST",
-        body: {
-          category,
-          message: form.message.trim(),
-          customerName: form.customerName.trim(),
-          customerEmail: form.customerEmail.trim(),
-          ...(code && { linkCode: code }),
-          idempotencyKey: keyRef.current,
-        },
-      });
+      await (mode === "voice" ? sendVoice(form) : sendText(form));
     } catch (err) {
-      if (err.status === 404) {
-        onUnavailable();
-        return;
-      }
-      if (err.status === 429) {
-        throw new Error("You've sent several messages in a short time. Please wait a few minutes, then try again.");
-      }
-      if (err.details && Object.keys(err.details).some((field) => !VISIBLE_FIELDS.includes(field))) {
-        keyRef.current = null;
-        throw new Error("Something went wrong on our side. Please try again.");
-      }
-      if (err.code === "NETWORK_ERROR" || err.status >= 500) {
-        // The request may or may not have reached the server. Retrying with
-        // the same key is safe: it can't create a second copy.
-        setRetryable(true);
-        throw new Error("We couldn't confirm that your feedback was sent. Please try again; it won't be sent twice.");
-      }
-      throw err;
+      failed(err);
+      return;
     }
 
     // Only reached once the server has confirmed the save.
     keyRef.current = null;
     reset(EMPTY);
     setCategory("general");
+    recorder.discard();
     setSent(true);
   });
 
@@ -237,22 +319,61 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                   {bind("category").error && <p className="mt-1.5 text-xs text-danger">{bind("category").error}</p>}
                 </fieldset>
 
-                <TextField
-                  label="Your feedback"
-                  multiline
-                  rows={5}
-                  maxLength={FEEDBACK_MESSAGE_MAX}
-                  placeholder="Tell us what happened or what we could do better"
-                  hint={`${messageLength} / ${FEEDBACK_MESSAGE_MAX} characters`}
-                  {...bind("message")}
-                />
+                <fieldset disabled={submitting}>
+                  <legend className="text-sm font-medium text-ink">How would you like to share it?</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-1 rounded-md border border-border bg-subtle p-1">
+                    {MODES.map(({ value, label, Icon }) => (
+                      <label
+                        key={value}
+                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-sm text-ink-muted transition-colors hover:text-ink has-[:checked]:bg-surface has-[:checked]:font-medium has-[:checked]:text-ink has-[:checked]:shadow-xs has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                      >
+                        <input
+                          type="radio"
+                          name="mode"
+                          value={value}
+                          checked={mode === value}
+                          onChange={() => switchMode(value)}
+                          className="sr-only"
+                        />
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {mode === "text" ? (
+                  <TextField
+                    label="Your feedback"
+                    multiline
+                    rows={5}
+                    maxLength={FEEDBACK_MESSAGE_MAX}
+                    placeholder="Tell us what happened or what we could do better"
+                    hint={`${messageLength} / ${FEEDBACK_MESSAGE_MAX} characters`}
+                    {...bind("message")}
+                  />
+                ) : (
+                  <VoiceRecorder
+                    recorder={recorder}
+                    support={voiceSupport}
+                    disabled={submitting}
+                    onUseText={() => switchMode("text")}
+                  />
+                )}
 
                 <p className="flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
                   <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    Your feedback goes privately to {business.name}. It's anonymous unless you add your name or email
-                    below.
-                  </span>
+                  {mode === "voice" ? (
+                    <span>
+                      Your recording goes privately to {business.name} and only their team can listen to it. Automatic
+                      transcription may not be available. It's anonymous unless you add your name or email below.
+                    </span>
+                  ) : (
+                    <span>
+                      Your feedback goes privately to {business.name}. It's anonymous unless you add your name or email
+                      below.
+                    </span>
+                  )}
                 </p>
 
                 <fieldset disabled={submitting} className="space-y-4">
@@ -288,8 +409,10 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                   </Alert>
                 )}
 
+                {uploadProgress !== null && <UploadProgress value={uploadProgress} />}
+
                 <Button type="submit" loading={submitting} className="w-full">
-                  {submitting ? "Sending…" : "Send feedback"}
+                  {submitting ? "Sending…" : mode === "voice" ? "Send recording" : "Send feedback"}
                 </Button>
               </form>
             </Card>

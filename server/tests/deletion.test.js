@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import crypto from "node:crypto";
+import path from "node:path";
+import { readdir } from "node:fs/promises";
 import request from "supertest";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
@@ -10,11 +12,16 @@ import { Business } from "../src/models/Business.js";
 import { FeedbackLink } from "../src/models/FeedbackLink.js";
 import { Feedback } from "../src/models/Feedback.js";
 import { AuditLog } from "../src/models/AuditLog.js";
-import { ORGANIZATION_DATA } from "../src/services/accountDeletion.js";
+import { ORGANIZATION_DATA, STORED_FILES } from "../src/services/accountDeletion.js";
+import { getStorage } from "../src/services/storage/index.js";
 import { SESSION_COOKIE, signSession } from "../src/utils/session.js";
 
-const app = createApp({ limits: { api: 10000, login: 1000, register: 1000, public: 10000, submit: 10000 } });
+const app = createApp({ limits: { api: 10000, login: 1000, register: 1000, public: 10000, submit: 10000, voice: 10000 } });
 const PASSWORD = "correct-horse-battery";
+
+// Each test builds one or two fully populated tenants (including uploads)
+// against a remote database, which can take longer than the default timeout.
+vi.setConfig({ testTimeout: 60000 });
 
 let admin;
 let adminCookie;
@@ -37,8 +44,28 @@ const asAdmin = (path, body) =>
   request(app).post(`/api/super-admin/accounts${path}`).set("Cookie", adminCookie).send(body);
 const deleteAccount = (orgId, confirmName) => asAdmin(`/${orgId}/delete`, { confirmName });
 
+// Stored files under one business's prefix (every key starts with its id).
+async function storedFilesOf(businessId) {
+  const dir = path.join(getStorage().root, String(businessId));
+  try {
+    return (await readdir(dir)).sort();
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+}
+
+// A minimal WebM header: enough to pass the upload's magic-byte check.
+function webm(size = 3000) {
+  const buffer = Buffer.alloc(size, 0x11);
+  Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42, 0x82, 0x84]).copy(buffer);
+  buffer.write("webm", 8, "latin1");
+  return buffer;
+}
+
 // A fully populated tenant: approved owner, business, an extra link, feedback
-// through both links (one complaint with an internal note), and audit entries.
+// through both links (one complaint with an internal note), two voice
+// recordings in storage, and audit entries.
 async function tenant(label) {
   const email = `owner@${label}.test`;
   const reg = await request(app)
@@ -61,6 +88,16 @@ async function tenant(label) {
       .send({ ...body, idempotencyKey: crypto.randomUUID() });
     expect(res.status).toBe(201);
   }
+  for (const linkCode of [undefined, link.code]) {
+    const req = request(app)
+      .post(`/api/public/f/${business.publicSlug}/submit-voice`)
+      .field("category", "suggestion")
+      .field("durationSec", "5")
+      .field("idempotencyKey", crypto.randomUUID());
+    if (linkCode) req.field("linkCode", linkCode);
+    expect((await req.attach("audio", webm(), { filename: "r", contentType: "audio/webm" })).status).toBe(201);
+  }
+  expect(await storedFilesOf(business.id)).toHaveLength(2);
   // Notes, review and complaint history through the inbox API, so deletion is
   // checked against the data it really holds (all embedded in Feedback).
   const complaint = await Feedback.findOne({ businessId: business.id, category: "complaint" });
@@ -82,6 +119,7 @@ async function snapshot(orgId) {
     links: await FeedbackLink.find({ organizationId: id }).lean(),
     feedback: await Feedback.find({ organizationId: id }).lean(),
     audit: await AuditLog.find({ targetId: id }).lean(),
+    files: (await Promise.all((await Business.find({ organizationId: id })).map((b) => storedFilesOf(b._id)))).flat(),
   };
 }
 
@@ -170,7 +208,8 @@ describe("deleting an account", () => {
     const b = await tenant("b");
     const bBefore = await snapshot(b.orgId);
     const aBefore = await snapshot(a.orgId);
-    expect(aBefore.feedback).toHaveLength(2);
+    expect(aBefore.feedback).toHaveLength(4);
+    expect(aBefore.files).toHaveLength(2);
     expect(aBefore.links).toHaveLength(2);
     expect(aBefore.audit.length).toBeGreaterThan(0);
 
@@ -179,7 +218,8 @@ describe("deleting an account", () => {
     expect(res.body.deleted).toEqual({
       organizationId: a.orgId,
       businessName: "Shop a",
-      deleted: { feedback: 2, links: 2, businesses: 1, users: 1 },
+      deleted: { feedback: 4, links: 2, businesses: 1, users: 1 },
+      files: { removed: 2, failed: 0 },
     });
     expect(JSON.stringify(res.body)).not.toMatch(/@|password|Cold food|Private note/i);
 
@@ -189,6 +229,8 @@ describe("deleting an account", () => {
     expect(aAfter.businesses).toHaveLength(0);
     expect(aAfter.links).toHaveLength(0);
     expect(aAfter.feedback).toHaveLength(0);
+    expect(await storedFilesOf(a.business.id)).toEqual([]);
+    expect(bBefore.files).toHaveLength(2);
     expect(await User.exists({ email: a.email })).toBeNull();
     expect(await Feedback.exists({ message: /at a$/ })).toBeNull();
     expect(await Feedback.exists({ "internalNotes.text": "Private note for a" })).toBeNull();
@@ -221,6 +263,30 @@ describe("deleting an account", () => {
       }
     }
     expect(await Organization.countDocuments({ _id: orgId })).toBe(0);
+
+    // Every stored file type is listed in STORED_FILES, and storage keys are
+    // prefixed with the business id, so nothing may remain under A's prefix.
+    expect(STORED_FILES.map((f) => f.key)).toEqual(["audio"]);
+    expect(await storedFilesOf(a.business.id)).toEqual([]);
+  });
+
+  it("still deletes the account if removing a stored file fails, and logs the key", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const a = await tenant("a");
+    const [kept] = await Feedback.find({ organizationId: a.orgId, submissionType: "voice" }).sort({ _id: 1 });
+    const storage = getStorage();
+    const realDelete = storage.delete.bind(storage);
+    vi.spyOn(storage, "delete").mockImplementation((key) =>
+      key === kept.audioKey ? Promise.reject(new Error("Simulated storage outage")) : realDelete(key)
+    );
+
+    const res = await deleteAccount(a.orgId, "Shop a");
+    expect(res.status).toBe(200);
+    expect(res.body.deleted.files).toEqual({ removed: 1, failed: 1 });
+    expect(JSON.stringify(res.body)).not.toContain(kept.audioKey);
+    expect(await Organization.exists({ _id: a.orgId })).toBeNull();
+    expect(await storedFilesOf(a.business.id)).toEqual([kept.audioKey.split("/")[1]]);
+    expect(errors.mock.calls.some(([message]) => String(message).includes(kept.audioKey))).toBe(true);
   });
 
   it("keeps exactly one audit entry, with no email, password or feedback data", async () => {

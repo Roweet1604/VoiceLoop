@@ -13,9 +13,11 @@ import { FeedbackLink } from "../models/FeedbackLink.js";
 import { Feedback } from "../models/Feedback.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { AppError } from "../utils/AppError.js";
+import { getStorage } from "./storage/index.js";
 
 // Collections whose documents belong to an organization through an
-// `organizationId` field. Feedback includes its internal notes (embedded).
+// `organizationId` field. Feedback includes its internal notes (embedded);
+// its audio files are in storage and handled separately (STORED_FILES).
 // Order: dependants first, so a partial run could never leave orphans
 // pointing at missing parents (the transaction makes this belt and braces).
 export const ORGANIZATION_DATA = [
@@ -27,6 +29,34 @@ export const ORGANIZATION_DATA = [
   { model: User, key: "users", extraFilter: { role: { $ne: "superadmin" } } },
 ];
 
+// Every kind of stored file and how to find an organization's keys. Add new
+// file types here (and to tests/deletion.test.js) in the same change.
+export const STORED_FILES = [
+  {
+    key: "audio",
+    keysFor: async (orgId, session) =>
+      (await Feedback.find({ organizationId: orgId, audioKey: { $ne: null } }).select("audioKey").session(session).lean()).map(
+        (f) => f.audioKey
+      ),
+  },
+];
+
+// Removes files after the database deletion committed. Failures are logged
+// with their keys so they can be removed by hand, but never undo or fail the
+// deletion: the database records are already gone.
+async function deleteStoredFiles(keys, organizationId) {
+  const storage = getStorage();
+  const results = await Promise.allSettled(keys.map((key) => storage.delete(key)));
+  const failed = keys.filter((_, i) => results[i].status === "rejected");
+  if (failed.length > 0) {
+    console.error(
+      `[storage] account ${organizationId} deleted, but ${failed.length} file(s) could not be removed: ${failed.join(", ")}`,
+      results.find((r) => r.status === "rejected").reason
+    );
+  }
+  return { removed: keys.length - failed.length, failed: failed.length };
+}
+
 // The name the Super Admin must type to confirm: the business name, or the
 // organization name if no business has been set up yet.
 export function confirmationNameFor(organization, business) {
@@ -35,7 +65,8 @@ export function confirmationNameFor(organization, business) {
 
 /**
  * Permanently deletes an organization and all its data in one transaction.
- * Nothing is deleted unless every step succeeds.
+ * Nothing is deleted unless every step succeeds. Its stored files (audio)
+ * are removed right after the transaction commits.
  *
  * Keeps exactly one AuditLog entry for the organization: action
  * "account_deleted", the actor's id, the organization id, the business name
@@ -47,6 +78,7 @@ export async function deleteOrganizationAccount({ organizationId, confirmName, a
   if (!mongoose.isValidObjectId(organizationId)) throw AppError.notFound("Account not found");
 
   let result;
+  let fileKeys = [];
   await mongoose.connection.transaction(async (session) => {
     const organization = await Organization.findById(organizationId).session(session);
     if (!organization) throw AppError.notFound("Account not found");
@@ -64,14 +96,11 @@ export async function deleteOrganizationAccount({ organizationId, confirmName, a
       });
     }
 
-    // ---------------------------------------------------------------------
-    // AUDIO STORAGE (not built yet). When private audio uploads exist:
-    //   1. Here, inside the transaction, collect the storage keys of every
-    //      audio file belonging to this organization (e.g. from Feedback).
-    //   2. After the transaction commits (see below), delete those objects
-    //      from storage. Files can't take part in a MongoDB transaction, so
-    //      they are removed only once the database deletion is certain.
-    // ---------------------------------------------------------------------
+    // Stored files can't take part in a MongoDB transaction, so their keys
+    // are collected here and the files removed only after the commit. (A
+    // transaction that is retried collects them again from scratch.)
+    fileKeys = [];
+    for (const { keysFor } of STORED_FILES) fileKeys.push(...(await keysFor(orgId, session)));
 
     const deleted = {};
     for (const { model, key, extraFilter } of ORGANIZATION_DATA) {
@@ -100,9 +129,6 @@ export async function deleteOrganizationAccount({ organizationId, confirmName, a
     result = { organizationId: orgId, businessName: expectedName, deleted };
   });
 
-  // AUDIO STORAGE (not built yet): delete the collected storage objects here,
-  // after the commit. Log any failures with their keys so they can be retried;
-  // never let a storage error report the account as not deleted.
-
+  result.files = await deleteStoredFiles(fileKeys, result.organizationId);
   return result;
 }

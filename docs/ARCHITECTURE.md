@@ -22,10 +22,12 @@ VoiceLoop/
 │   │   ├── config/db.js        MongoDB connection via Mongoose
 │   │   ├── models/             Mongoose models (User, Organization, Business, FeedbackLink, Feedback, AuditLog)
 │   │   ├── routes/             One router per resource, mounted under /api
-│   │   ├── services/           Business logic shared by routes (accountAccess)
+│   │   ├── services/           Business logic shared by routes (accountAccess, accountDeletion,
+│   │   │                       audioFile, storage/, transcription/)
 │   │   ├── middleware/         notFound, errorHandler, validate, rateLimit, auth
 │   │   ├── validators/         Plain validator functions used with validate()
 │   │   └── utils/              AppError, session (JWT + cookie helpers)
+│   ├── private-storage/        Local audio files (gitignored, never served statically)
 │   ├── scripts/                Operator scripts (create-superadmin.js)
 │   ├── tests/                  Vitest + Supertest; setup.js manages the test database
 │   └── vitest.config.js
@@ -132,7 +134,9 @@ Refused actions write nothing. Transactions need a replica set: MongoDB Atlas (i
 
 It then writes one AuditLog entry: `action: "account_deleted"`, `actor`, `targetId` (the organization id), `context.businessName` and `createdAt`, with no email, feedback text or password data. The deleted owner's session stops working immediately, because `requireAuth` no longer finds the user, and the public pages return the generic 404.
 
-**Deletion rule.** Any new collection holding organization data must be added to `ORGANIZATION_DATA`. The test "covers every model" in `tests/deletion.test.js` fails for any model with an `organizationId` that isn't listed. Audio storage cleanup has a marked placeholder in the service: collect keys inside the transaction, then delete the files after it commits.
+**Stored files.** Inside the transaction the service collects the storage keys of every file type listed in `STORED_FILES` (currently voice recordings, from `Feedback.audioKey`). After the commit it deletes those files from storage. A file that can't be removed is logged with its key for manual cleanup; it never undoes or fails the deletion. The response includes `files: { removed, failed }` (counts only, no keys).
+
+**Deletion rule.** Any new collection holding organization data must be added to `ORGANIZATION_DATA`, and any new stored file type to `STORED_FILES`. The test "covers every model" in `tests/deletion.test.js` fails for any model with an `organizationId` that isn't listed, and checks that no stored file remains under the deleted business's key prefix.
 
 ## Businesses
 
@@ -175,7 +179,7 @@ Same guards as `/api/business` (`requireAuth`, `requireActiveAccess`, `requireOw
 
 ## Feedback
 
-`Feedback` stores one submission: `businessId`, `organizationId`, `linkId`, `category` (`general`, `complaint`, `suggestion`, `compliment`, `other`), `message` (1–2000), optional `customerName` (≤80) and `customerEmail`, `submissionType` (`text`), `reviewStatus` (`new`/`reviewed`), `complaintStatus` (`open` for complaints, otherwise null; later `in_progress`/`resolved`), `internalNotes`, `submittedAt` and `idempotencyKey`. Indexes: `{ businessId, submittedAt }`, unique `{ businessId, idempotencyKey }`, `{ linkId }`.
+`Feedback` stores one submission: `businessId`, `organizationId`, `linkId`, `category` (`general`, `complaint`, `suggestion`, `compliment`, `other`), `message` (1–2000 for text, empty for voice), optional `customerName` (≤80) and `customerEmail`, `submissionType` (`text` or `voice`), for voice only `audioKey`, `audioMimeType`, `audioSizeBytes`, `audioDurationSec` and `transcriptStatus` (`unavailable`, `processing`, `completed`, `failed`) with `transcriptText`, `reviewStatus` (`new`/`reviewed`), `complaintStatus` (`open` for complaints, otherwise null; later `in_progress`/`resolved`), `internalNotes`, `submittedAt` and `idempotencyKey`. Indexes: `{ businessId, submittedAt }`, unique `{ businessId, idempotencyKey }`, `{ linkId }`.
 
 ### Owner inbox (`/api/feedback`)
 
@@ -183,14 +187,15 @@ Same guards as `/api/business`. Every query is scoped to the business of the log
 
 | Method and path | Input | Result |
 |---|---|---|
-| `GET /` | `page`, `limit` (≤50), `q`, `category`, `reviewStatus`, `complaintStatus`, `linkId`, `from`, `to` (ISO dates) | `{ feedback: [{ id, category, excerpt, customerName, reviewStatus, complaintStatus, submittedAt, link }], page, limit, total, totalPages }`, newest first |
+| `GET /` | `page`, `limit` (≤50), `q`, `category`, `reviewStatus`, `complaintStatus`, `submissionType`, `transcriptStatus`, `linkId`, `from`, `to` (ISO dates) | `{ feedback: [{ id, category, excerpt, customerName, submissionType, audioDurationSec, transcriptStatus, reviewStatus, complaintStatus, submittedAt, link }], page, limit, total, totalPages }`, newest first |
 | `GET /summary` | `tz` (IANA zone, default UTC) | `total`, `new`, `openComplaints`, `inProgress`, `resolved`, `volume` (last 30 local days), `byCategory`, `byLink`, `unlinkedCount` |
-| `GET /:id` | | Full feedback, with `internalNotes` and `statusHistory` (author names resolved) |
+| `GET /:id` | | Full feedback, with `internalNotes` and `statusHistory` (author names resolved); for voice, `audio: { mimeType, sizeBytes, durationSec }` (never the storage key), `transcriptStatus`, and `transcriptText` (only when completed) |
+| `GET /:id/audio` | | The recording, streamed with its content type and `Cache-Control: private, no-store`. `404` for text feedback, another tenant's id or a missing file |
 | `PATCH /:id/review` | `reviewStatus`: `new` or `reviewed` | Setting the current value again changes nothing |
 | `PATCH /:id/complaint-status` | `status`: `open`, `in_progress`, `resolved` or `reopen`; `resolutionSummary` (required for `resolved`, ≤1000) | Complaints only (`409 NOT_A_COMPLAINT`). Allowed: open→in progress/resolved, in progress→open/resolved, resolved→reopen (open). Anything else is `409 INVALID_TRANSITION` |
 | `POST /:id/notes` | `text` (1–1000) | `201`, with the note's author and time |
 
-- **Search** matches message text case-insensitively, and the input is escaped, so `$5.00 (` matches literally. It's a scan within one business; fine at this scale, but a text index would be needed for very large inboxes.
+- **Search** matches message and transcript text case-insensitively, and the input is escaped, so `$5.00 (` matches literally. It's a scan within one business; fine at this scale, but a text index would be needed for very large inboxes.
 - **History:** review and complaint changes are recorded in `statusHistory` (`field`, `from`, `to`, `by`, `at`, and `resolutionSummary` when resolving).
 - **Concurrent edits:** updates only apply if the status is still what was read; otherwise the response is `409 CONFLICT`.
 - **Viewing changes nothing.** Opening a feedback item never marks it reviewed or changes its status.
@@ -207,6 +212,7 @@ A business is publicly available only when it's active and its organization's ac
 | `GET /business/:slug` | `{ business }` |
 | `GET /f/:slug` and `GET /f/:slug/:code` | `{ business, linkCode }`. The link's name is not exposed. |
 | `POST /f/:slug/submit` | `201 { submitted: true, submittedAt }` |
+| `POST /f/:slug/submit-voice` | `201 { submitted: true, submittedAt }` (multipart) |
 
 `business` is always just `{ slug, name, locationName, welcomeMessage, logoUrl, googleReviewUrl, reviewCardText, feedbackCardText }`.
 
@@ -216,6 +222,28 @@ A business is publicly available only when it's active and its organization's ac
 - **Idempotency:** a repeated key for the same business stores nothing new and returns the original `201` response, including when two copies arrive at once. The client should generate one key per submission attempt and reuse it on retries.
 - **Rate limit:** at most 10 submissions per IP per 10 minutes.
 - **Confirmation:** success is only returned after the database write succeeds.
+
+**Submitting voice feedback.** `multipart/form-data` with the same `category`, optional `customerName`, `customerEmail`, `linkCode`, a required `idempotencyKey`, `durationSec` (the length the browser measured, `0 < d ≤ 120`), and one file in the `audio` field.
+
+- **Accepted files:** at most 5 MB (`413` above), types `audio/webm`, `audio/ogg`, `audio/mp4`, `audio/mpeg`, `audio/wav` (parameters such as `;codecs=opus` are ignored). The file's first bytes must match the declared type (EBML with doctype `webm`, `OggS`, `ftyp`, ID3 or an MPEG frame, `RIFF…WAVE`), and the size must be plausible for the claimed duration. Anything else is `400` with `details.audio` or `details.durationSec`, and nothing is stored.
+- **Order:** the business is checked before the upload is read; then the fields and file are validated, the link resolved, and the idempotency key checked. Only then is the file written to storage, followed by the database record. If the record can't be saved, the file is deleted again.
+- **Idempotency:** a repeated key stores no second record or file. When two copies race, the losing copy's file is deleted.
+- **Rate limit:** at most 5 voice submissions per IP per 10 minutes, counted separately from text.
+- **Transcription:** `transcriptStatus` is `unavailable` while no speech-to-text provider is configured, and no transcript is ever created.
+- **Nothing private comes back:** the response never contains ids, storage keys or paths.
+
+### Audio storage and transcription
+
+`services/storage` is the only code that touches stored files. Drivers implement `put(key, buffer)`, `getStream(key)` and `delete(key)`, chosen by `STORAGE_DRIVER`:
+
+- `local` (default): files under `server/private-storage/` (or `STORAGE_LOCAL_DIR`). That folder is gitignored and no route serves it; audio is only read through `GET /api/feedback/:id/audio` after the ownership check. Suitable for development, or a single server with a persistent disk.
+- `s3`: a stub. It refuses to start unless `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are set, and even then rejects every operation. **Not implemented.**
+
+Keys are `<businessId>/<32 random hex characters>.<ext>`, validated against a strict pattern before any file system access, and never sent to a client.
+
+`services/transcription` selects a provider with `TRANSCRIPTION_PROVIDER`. Only `none` exists: it reports itself unavailable and never calls an external service. **No speech-to-text is integrated.**
+
+The owner's detail page fetches the recording with the session cookie and plays it from a local object URL, so playback works when the API is on another origin and no public audio address exists.
 
 ## Client routes
 
@@ -263,6 +291,10 @@ Stack traces are never sent to the client. They are logged on the server. When `
 | `JWT_SECRET`  | Yes      | none                    | Signs session tokens. At least 32 random characters; the server refuses to start otherwise. |
 | `COOKIE_SAMESITE` | No   | `lax`                   | `SameSite` attribute of the session cookie. |
 | `MONGODB_TEST_URI` | No  | unset                   | Database for `npm test`; its name must end in `_test`. If unset, tests use the `MONGODB_URI` cluster with database `voiceloop_test`. |
+| `STORAGE_DRIVER` | No    | `local`                 | Audio storage driver: `local` or `s3` (stub, not implemented). Unknown or unconfigured values stop the server at startup. |
+| `STORAGE_LOCAL_DIR` | No | `server/private-storage` | Folder for the local driver. Keep it outside any public path. Tests use a temporary folder. |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only for `s3` | unset | Checked by the S3 stub; not used yet. |
+| `TRANSCRIPTION_PROVIDER` | No | `none`                 | Speech-to-text provider. Only `none` exists. |
 
 `dotenv` loads `.env` from the current working directory, so start the server from inside `server/` (as `npm run dev` does).
 

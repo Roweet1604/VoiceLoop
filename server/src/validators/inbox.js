@@ -7,6 +7,8 @@ import {
   FEEDBACK_CATEGORIES,
   REVIEW_STATUSES,
   COMPLAINT_STATUSES,
+  SUBMISSION_TYPES,
+  TRANSCRIPT_STATUSES,
   NOTE_MAX,
   RESOLUTION_SUMMARY_MAX,
 } from "../models/Feedback.js";
@@ -46,6 +48,8 @@ export function listFeedbackQuery(query) {
   check("category", (v) => checkOneOf(v, FEEDBACK_CATEGORIES));
   check("reviewStatus", (v) => checkOneOf(v, REVIEW_STATUSES));
   check("complaintStatus", (v) => checkOneOf(v, COMPLAINT_STATUSES));
+  check("submissionType", (v) => checkOneOf(v, SUBMISSION_TYPES));
+  check("transcriptStatus", (v) => checkOneOf(v, TRANSCRIPT_STATUSES));
   check("linkId", (v) => (typeof v === "string" && mongoose.isValidObjectId(v) ? null : "Invalid link"));
   check("from", checkDate);
   check("to", checkDate);

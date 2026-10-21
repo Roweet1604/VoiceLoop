@@ -114,6 +114,16 @@ export function validateFeedback(values) {
   });
 }
 
+// Voice feedback has no message; only the optional contact details.
+export function validateVoiceFeedback(values) {
+  const { message: _ignored, ...errors } = validateFeedback({ ...values, message: "x" });
+  return errors;
+}
+
+// Mirrors server/src/services/audioFile.js.
+export const VOICE_MAX_SECONDS = 120;
+export const VOICE_MAX_BYTES = 5 * 1024 * 1024;
+
 // Mirrors server/src/validators/links.js.
 export const LINK_NAME_MAX = 60;
 

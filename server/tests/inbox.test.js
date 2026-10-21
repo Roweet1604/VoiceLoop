@@ -67,6 +67,7 @@ describe("access", () => {
       ["get", "/"],
       ["get", "/summary"],
       ["get", `/${f._id}`],
+      ["get", `/${f._id}/audio`],
       ["patch", `/${f._id}/review`],
       ["patch", `/${f._id}/complaint-status`],
       ["post", `/${f._id}/notes`],
