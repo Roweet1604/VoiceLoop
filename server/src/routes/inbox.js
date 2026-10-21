@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { pipeline } from "node:stream/promises";
 import mongoose from "mongoose";
-import { Business } from "../models/Business.js";
 import { FeedbackLink } from "../models/FeedbackLink.js";
 import { Feedback, FEEDBACK_CATEGORIES } from "../models/Feedback.js";
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
-import { escapeRegex } from "../utils/regex.js";
 import { validate } from "../middleware/validate.js";
 import { requireAuth, requireActiveAccess, requireOwner } from "../middleware/auth.js";
 import { getStorage, StorageNotFoundError } from "../services/storage/index.js";
+import { ownBusiness } from "../services/ownBusiness.js";
+import { feedbackFilter } from "../services/feedbackFilter.js";
 import {
   listFeedbackQuery,
   summaryQuery,
@@ -36,12 +36,6 @@ const router = Router();
 // of the logged-in user's organization (from the database), so ids of another
 // tenant's feedback simply aren't found.
 router.use(requireAuth, requireActiveAccess, requireOwner);
-
-async function ownBusiness(req) {
-  const business = await Business.findOne({ organizationId: req.user.organizationId });
-  if (!business) throw AppError.notFound("Set up your business first", "NO_BUSINESS");
-  return business;
-}
 
 async function ownFeedback(business, id) {
   const feedback = mongoose.isValidObjectId(id) ? await Feedback.findOne({ _id: id, businessId: business._id }) : null;
@@ -178,33 +172,11 @@ router.get("/summary", validate({ query: summaryQuery }), async (req, res) => {
 
 // --- List ----------------------------------------------------------------------
 
-const excerptOf = (text) => (text.length > EXCERPT_LENGTH ? `${text.slice(0, EXCERPT_LENGTH).trimEnd()}…` : text);
-
 router.get("/", validate({ query: listFeedbackQuery }), async (req, res) => {
   const business = await ownBusiness(req);
-  const { q, category, reviewStatus, complaintStatus, submissionType, transcriptStatus, linkId, from, to } = req.query;
   const page = Number(req.query.page ?? 1);
   const limit = Number(req.query.limit ?? 20);
-
-  // Always scoped to this business; filters only narrow it further.
-  const filter = { businessId: business._id };
-  if (category) filter.category = category;
-  if (reviewStatus) filter.reviewStatus = reviewStatus;
-  if (complaintStatus) filter.complaintStatus = complaintStatus;
-  if (submissionType) filter.submissionType = submissionType;
-  if (transcriptStatus) filter.transcriptStatus = transcriptStatus;
-  if (linkId) filter.linkId = new mongoose.Types.ObjectId(linkId);
-  if (from || to) {
-    filter.submittedAt = {};
-    if (from) filter.submittedAt.$gte = new Date(from);
-    if (to) filter.submittedAt.$lte = new Date(to);
-  }
-  // Search input is escaped, so it always matches literally. Transcripts are
-  // searched too (only completed ones have text).
-  if (q?.trim()) {
-    const pattern = { $regex: escapeRegex(q.trim()), $options: "i" };
-    filter.$or = [{ message: pattern }, { transcriptText: pattern }];
-  }
+  const filter = feedbackFilter(business._id, req.query);
 
   const [total, items, links] = await Promise.all([
     Feedback.countDocuments(filter),

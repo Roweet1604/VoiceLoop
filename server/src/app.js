@@ -9,6 +9,8 @@ import superAdminRouter from "./routes/superAdmin.js";
 import businessRouter from "./routes/business.js";
 import linksRouter from "./routes/links.js";
 import inboxRouter from "./routes/inbox.js";
+import { createExportRouter } from "./routes/export.js";
+import analyticsRouter from "./routes/analytics.js";
 import { createPublicRouter } from "./routes/public.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -19,13 +21,22 @@ const FIFTEEN_MINUTES = 15 * 60 * 1000;
 const ONE_HOUR = 60 * 60 * 1000;
 
 // Builds the Express app without starting a server, so tests can drive it
-// with Supertest. `limits` lets tests loosen or tighten the rate limiters.
+// with Supertest. `limits` lets tests loosen or tighten the rate limiters and
+// the export row cap (limits.exportRows).
 export function createApp({ limits = {} } = {}) {
   const app = express();
 
   app.use(helmet());
   // credentials: true lets the browser send the session cookie cross-origin.
-  app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173", credentials: true }));
+  // The exposed headers let the client read the export's file name and
+  // whether it was cut off when the API is on another origin.
+  app.use(
+    cors({
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      credentials: true,
+      exposedHeaders: ["Content-Disposition", "X-Export-Total", "X-Export-Rows", "X-Export-Truncated", "X-Export-Row-Limit"],
+    })
+  );
 
   // Rate limit before parsing bodies so malformed or oversized payloads still count.
   app.use("/api", createLimiter({ windowMs: FIFTEEN_MINUTES, limit: limits.api ?? 300 }));
@@ -43,7 +54,15 @@ export function createApp({ limits = {} } = {}) {
   app.use("/api/super-admin", superAdminRouter);
   app.use("/api/business", businessRouter);
   app.use("/api/links", linksRouter);
+  // Before the inbox, so "export.csv" isn't read as a feedback id. Exports
+  // are heavier than other reads, so they have their own limit.
+  app.use(
+    "/api/feedback/export.csv",
+    createLimiter({ windowMs: FIFTEEN_MINUTES, limit: limits.export ?? 30 }),
+    createExportRouter({ rowLimit: limits.exportRows })
+  );
   app.use("/api/feedback", inboxRouter);
+  app.use("/api/analytics", analyticsRouter);
   // Public endpoints get their own, tighter per-IP limit on top of the API-wide
   // one, feedback submission a much stricter one again, and voice uploads
   // (up to 5 MB each) the strictest.

@@ -6,6 +6,7 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import { inputClasses } from "../components/ui/TextField.jsx";
 import { CategoryBadge, ComplaintStatusBadge, NewIndicator } from "../components/feedback/Badges.jsx";
+import ExportCsvButton from "../components/feedback/ExportCsvButton.jsx";
 import { useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
 import { formatDate, formatDuration, formatTime } from "../lib/format.js";
@@ -32,8 +33,8 @@ const endOfDay = (value) => {
 };
 
 // URL filters -> API query.
-function apiQuery(params) {
-  const query = new URLSearchParams({ page: params.get("page") || "1", limit: String(PAGE_SIZE) });
+function apiQuery(params, { paged = true } = {}) {
+  const query = new URLSearchParams(paged ? { page: params.get("page") || "1", limit: String(PAGE_SIZE) } : {});
   const map = {
     q: "q",
     category: "category",
@@ -62,6 +63,8 @@ export default function FeedbackInboxPage() {
   const [state, setState] = useState({ loading: true, data: null, error: null });
   const [reloadKey, setReloadKey] = useState(0);
   const query = apiQuery(params);
+  // The export takes the same filters, without paging.
+  const exportQuery = apiQuery(params, { paged: false });
   const hasFilters = FILTER_KEYS.some((key) => params.get(key));
 
   function update(changes) {
@@ -110,8 +113,13 @@ export default function FeedbackInboxPage() {
 
   return (
     <>
-      <h1 className="text-lg font-semibold text-ink">Feedback</h1>
-      <p className="mt-1 text-sm text-ink-muted">Everything customers have sent you, newest first.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-ink">Feedback</h1>
+          <p className="mt-1 text-sm text-ink-muted">Everything customers have sent you, newest first.</p>
+        </div>
+        <ExportCsvButton query={exportQuery} disabled={data?.total === 0} onAccessError={handleAccessError} />
+      </div>
 
       <div className="mt-6 space-y-3">
         <div className="relative">

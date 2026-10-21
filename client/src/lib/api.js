@@ -59,14 +59,36 @@ function errorFor(status, data) {
 // A binary response (e.g. a voice recording) as a Blob, sent with the session
 // cookie. Errors are ApiErrors, as with api().
 export async function apiBlob(path) {
+  return (await apiDownload(path)).blob;
+}
+
+// Like apiBlob, but also returns the response headers (file name, export
+// row counts). Resolves only once the whole body has arrived.
+export async function apiDownload(path) {
   let res;
+  let blob;
   try {
     res = await fetch(`${BASE_URL}${path}`, { credentials: "include" });
+    if (res.ok) blob = await res.blob();
   } catch {
+    // Also reached when the server cuts a download off part-way.
     throw new ApiError("Can't reach the server. Check your connection and try again.", { code: "NETWORK_ERROR" });
   }
-  if (res.ok) return res.blob();
+  if (res.ok) return { blob, headers: res.headers };
   throw errorFor(res.status, parseJson(await res.text()));
+}
+
+// Saves a Blob as a file through a temporary link.
+export function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Revoke later: some browsers start the download asynchronously.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 // Posts multipart FormData and reports upload progress (0 to 1) along the

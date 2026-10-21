@@ -18,6 +18,7 @@ import SettingsPage from "./pages/SettingsPage.jsx";
 import LinksPage from "./pages/LinksPage.jsx";
 import FeedbackInboxPage from "./pages/FeedbackInboxPage.jsx";
 import FeedbackDetailPage from "./pages/FeedbackDetailPage.jsx";
+import AnalyticsPage from "./pages/AnalyticsPage.jsx";
 import FeedbackPage from "./pages/FeedbackPage.jsx";
 import SuperAdminPage from "./pages/SuperAdminPage.jsx";
 import HealthPage from "./pages/HealthPage.jsx";
@@ -51,6 +52,7 @@ export default function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="feedback" element={<FeedbackInboxPage />} />
               <Route path="feedback/:feedbackId" element={<FeedbackDetailPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="links" element={<LinksPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

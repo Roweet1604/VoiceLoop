@@ -201,6 +201,28 @@ Same guards as `/api/business`. Every query is scoped to the business of the log
 - **Viewing changes nothing.** Opening a feedback item never marks it reviewed or changes its status.
 - **Never public:** notes, history and statuses are embedded in the feedback document and never returned by any `/api/public` route.
 
+### CSV export (`GET /api/feedback/export.csv`)
+
+Same guards, the same filters as `GET /` (validated by the same function, built by `services/feedbackFilter.js`), and its own limit of 30 exports per IP per 15 minutes. It's mounted before the inbox router so `export.csv` is never read as an id.
+
+- **Columns:** `Submitted at (UTC)` (ISO), `Category`, `Type`, `Message`, `Customer name`, `Customer email`, `Source` (link name), `Review status`, `Complaint status`, `Resolution summary`. No ids, internal notes, history, audio keys or transcripts.
+- **Format:** UTF-8 with a byte order mark (so Excel reads it correctly), CRLF line endings, fields quoted when they contain a comma, quote or line break (quotes doubled). Newest first.
+- **Formula injection:** a cell starting with `=`, `+`, `-`, `@`, tab or carriage return gets a leading `'` (`utils/csv.js`), so spreadsheets show it as text instead of running it.
+- **Cap:** at most 10,000 rows (`createApp({ limits: { exportRows } })` overrides it in tests). Headers `X-Export-Total`, `X-Export-Rows`, `X-Export-Truncated` and `X-Export-Row-Limit` say whether the file was cut off; CORS exposes them and `Content-Disposition`.
+- **Headers:** `Content-Type: text/csv; charset=utf-8`, `Content-Disposition: attachment; filename="voiceloop-feedback-<slug>-<date>.csv"`, `Cache-Control: private, no-store`. Rows are streamed from a database cursor; if that fails part-way, the connection is cut so a partial file can't pass for a complete one.
+
+## Analytics (`GET /api/analytics`)
+
+Same owner guards; always the owner's own business. Query: `from` and `to` as local calendar days (`YYYY-MM-DD`, both included, at most 366 days), and `tz` (IANA zone, default `UTC`). Defaults: the 30 days ending today in `tz`. Invalid dates, reversed or too-long ranges, unknown zones and repeated keys are `400` with `details`.
+
+Everything is counted from stored records:
+
+- `range` (`from`, `to`, `timeZone`, `days`) and `total` (feedback submitted in the range).
+- `volume`: one `{ date, count }` per day of the range, zeros included, grouped by local day in `tz`.
+- `byCategory` (every category), `byLink` (every link of the business, including zero counts and inactive links), `unlinkedCount`, `bySubmissionType` (`text`, `voice`).
+- `complaints`: `received` in the range with their current `open` / `inProgress` / `resolved` counts; `resolvedInRange`, complaints whose latest resolution (from `statusHistory`) falls in the range, whenever they were received; and `averageHoursToResolve` over those, from submission to that latest resolution (`null` if none). A complaint that was resolved and later reopened isn't counted as resolved.
+- `keywords` (`method: "keyword counts"`): words and two-word phrases in complaints received in the range (`services/keywords.js`). Text is lowercased, apostrophes and punctuation removed, a built-in English stopword list, single characters and bare numbers dropped; a stopword breaks a phrase. Each complaint counts a term at most once. The top 10 terms found in at least 3 complaints, phrases before single words at equal counts. Deterministic counting, not AI.
+
 ## Public API (`/api/public`)
 
 No session needed. Every route is limited to 60 requests per IP per minute, on top of the API-wide limit. Responses are sent with `Cache-Control: no-store`.
@@ -252,7 +274,7 @@ The owner's detail page fetches the recording with the session cookie and plays 
 | `/signup`, `/login` | logged-out only | Auth forms |
 | `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |
 | `/app/setup` | active owner without a business | Create the business |
-| `/app/dashboard`, `/app/feedback`, `/app/feedback/:feedbackId`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
+| `/app/dashboard`, `/app/feedback`, `/app/feedback/:feedbackId`, `/app/analytics`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
 | `/f/:slug`, `/f/:slug/:code` | none (public, outside the session gate) | Customer feedback form |
 | `/super-admin` | Super Admin | Account approvals |
 | `/health` | none | API reachability check |
