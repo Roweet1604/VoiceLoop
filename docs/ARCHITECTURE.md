@@ -301,6 +301,8 @@ The owner's detail page fetches the recording with the session cookie and plays 
 
 | Path | Guard | Page |
 |---|---|---|
+| `/` | logged-out (logged-in users go to their home); outside the session gate, so it shows even if the API is down | Landing page |
+| `/privacy`, `/terms` | none (public, outside the session gate) | Draft Privacy Policy and Terms; placeholders in `[BRACKETS]` must be filled in before launch |
 | `/signup`, `/login` | logged-out only | Auth forms |
 | `/forgot-password`, `/reset-password` | none (inside the session gate) | Request a reset link; choose a new password from it |
 | `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |

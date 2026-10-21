@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { AudioLines } from "lucide-react";
 import Card from "./ui/Card.jsx";
+import PublicFooter from "./PublicFooter.jsx";
 
 export function Wordmark() {
   return (
@@ -27,6 +28,7 @@ export default function AuthLayout({ title, description, children, footer }) {
           <div className="mt-6">{children}</div>
         </Card>
         {footer && <div className="mt-4 text-center text-sm text-ink-muted">{footer}</div>}
+        <PublicFooter className="mt-8" />
       </div>
     </main>
   );

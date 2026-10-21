@@ -8,10 +8,12 @@ import Alert from "../components/ui/Alert.jsx";
 import { useForm } from "../hooks/useForm.js";
 import { api } from "../lib/api.js";
 import { validateForgotPassword } from "../lib/validation.js";
+import { usePageMeta } from "../hooks/usePageMeta.js";
 
 // Asks for a reset link. The confirmation is the same whether or not the
 // email has an account, as is the server's answer.
 export default function ForgotPasswordPage() {
+  usePageMeta("Reset your password | VoiceLoop", "Get an email with a link to choose a new VoiceLoop password.");
   const [sentTo, setSentTo] = useState(null);
   const { bind, handleSubmit, submitting, formError, reset } = useForm({ email: "" }, validateForgotPassword);
 

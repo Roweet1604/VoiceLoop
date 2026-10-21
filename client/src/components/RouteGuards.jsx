@@ -14,10 +14,13 @@ export function SessionGate() {
   return <Outlet />;
 }
 
-// "/" has no public page yet: send people to wherever they belong.
-export function RootRedirect() {
-  const { session } = useAuth();
-  return <Navigate to={session ? homePathFor(session) : "/login"} replace />;
+// "/": the landing page for visitors; logged-in users go to their home. Not
+// under SessionGate, so visitors still see the page if the API is down.
+export function LandingRoute({ children }) {
+  const { status, session } = useAuth();
+  if (status === "loading") return <FullPageLoader />;
+  if (session) return <Navigate to={homePathFor(session)} replace />;
+  return children;
 }
 
 // Logged-in users only. Logged-out visitors go to /login, remembering where

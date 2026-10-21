@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from "react-router";
 import {
   SessionGate,
-  RootRedirect,
+  LandingRoute,
   GuestOnly,
   RequireAuth,
   RequireActiveAccess,
@@ -13,6 +13,9 @@ import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import LandingPage from "./pages/LandingPage.jsx";
+import PrivacyPage from "./pages/PrivacyPage.jsx";
+import TermsPage from "./pages/TermsPage.jsx";
 import WaitingPage from "./pages/WaitingPage.jsx";
 import SetupPage from "./pages/SetupPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -35,10 +38,18 @@ export default function App() {
       <Route path="/health" element={<HealthPage />} />
       {/* Public customer page: no session needed, so it never waits on /me. */}
       <Route path="/f/:slug/:code?" element={<FeedbackPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route
+        index
+        element={
+          <LandingRoute>
+            <LandingPage />
+          </LandingRoute>
+        }
+      />
 
       <Route element={<SessionGate />}>
-        <Route index element={<RootRedirect />} />
-
         {/* Not guest-only: a logged-in user may open a reset link too. */}
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />

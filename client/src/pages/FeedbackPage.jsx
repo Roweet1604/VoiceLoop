@@ -8,7 +8,9 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
 import VoiceRecorder, { UploadProgress } from "../components/feedback/VoiceRecorder.jsx";
+import PublicFooter from "../components/PublicFooter.jsx";
 import { useForm } from "../hooks/useForm.js";
+import { usePageMeta } from "../hooks/usePageMeta.js";
 import { useVoiceRecorder, voiceRecordingSupport, baseType } from "../hooks/useVoiceRecorder.js";
 import { api, apiUpload } from "../lib/api.js";
 import { newIdempotencyKey } from "../lib/idempotency.js";
@@ -57,9 +59,16 @@ export default function FeedbackPage() {
     load();
   }, [load]);
 
-  useEffect(() => {
-    if (page.business) document.title = `Feedback for ${page.business.name}`;
-  }, [page.business]);
+  usePageMeta(
+    page.status === "unavailable"
+      ? "Page not available"
+      : page.business
+        ? `Feedback for ${page.business.name}`
+        : "Leave feedback",
+    page.business
+      ? `Send private feedback to ${page.business.name}, in writing or as a voice message.`
+      : "Send private feedback to a business, in writing or as a voice message."
+  );
 
   if (page.status === "loading") {
     return (
@@ -441,10 +450,8 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
   );
 }
 
+// The page title is set by FeedbackPage.
 function Unavailable() {
-  useEffect(() => {
-    document.title = "Page not available";
-  }, []);
   return (
     <PublicFrame>
       <Card>
@@ -463,6 +470,8 @@ function PublicFrame({ children }) {
       <div className="mx-auto w-full max-w-lg">
         {children}
         <p className="mt-8 text-center text-xs text-ink-muted">Feedback collected with VoiceLoop</p>
+        {/* New tab, so a half-written message or recording isn't lost. */}
+        <PublicFooter newTab className="mt-2" />
       </div>
     </main>
   );

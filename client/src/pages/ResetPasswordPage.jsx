@@ -8,11 +8,13 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useForm } from "../hooks/useForm.js";
 import { api } from "../lib/api.js";
 import { validateResetPassword, PASSWORD_MIN_LENGTH } from "../lib/validation.js";
+import { usePageMeta } from "../hooks/usePageMeta.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 // /reset-password?token=... from the emailed link.
 export default function ResetPasswordPage() {
+  usePageMeta("Choose a new password | VoiceLoop", "Choose a new password for your VoiceLoop account.");
   const { refresh } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();

@@ -8,10 +8,15 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useForm } from "../hooks/useForm.js";
 import { validateSignup, PASSWORD_MIN_LENGTH } from "../lib/validation.js";
 import { homePathFor } from "../lib/access.js";
+import { usePageMeta } from "../hooks/usePageMeta.js";
 
 export default function SignupPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  usePageMeta(
+    "Request access | VoiceLoop",
+    "Request a VoiceLoop account to collect private text and voice feedback from your customers. New accounts are approved manually."
+  );
   const { bind, handleSubmit, submitting, formError } = useForm(
     { name: "", organizationName: "", email: "", password: "" },
     validateSignup
@@ -29,7 +34,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Create your account"
+      title="Request access"
       description="Collect private text and voice feedback from your customers."
       footer={
         <>
@@ -54,11 +59,22 @@ export default function SignupPage() {
         />
 
         <Button type="submit" loading={submitting} className="w-full">
-          {submitting ? "Creating account…" : "Create account"}
+          {submitting ? "Sending request…" : "Request access"}
         </Button>
 
         <p className="text-xs text-ink-muted">
           New accounts are reviewed by the VoiceLoop team before the dashboard becomes available.
+        </p>
+        <p className="text-xs text-ink-muted">
+          By requesting access you agree to the{" "}
+          <Link to="/terms" className="font-medium text-accent hover:underline">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="font-medium text-accent hover:underline">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </form>
     </AuthLayout>

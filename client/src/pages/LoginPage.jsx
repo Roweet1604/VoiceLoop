@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { useForm } from "../hooks/useForm.js";
 import { validateLogin } from "../lib/validation.js";
 import { homePathFor } from "../lib/access.js";
+import { usePageMeta } from "../hooks/usePageMeta.js";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const from = location.state?.from;
   const loggedOut = location.state?.loggedOut;
   const passwordReset = location.state?.passwordReset;
+  usePageMeta("Log in | VoiceLoop", "Log in to your VoiceLoop account to read and resolve your customers' feedback.");
 
   const { bind, handleSubmit, submitting, formError } = useForm({ email: "", password: "" }, validateLogin);
 
@@ -37,7 +39,7 @@ export default function LoginPage() {
         <>
           New to VoiceLoop?{" "}
           <Link to="/signup" className="font-medium text-accent hover:underline">
-            Create an account
+            Request access
           </Link>
         </>
       }
