@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { User } from "../models/User.js";
 import { Organization } from "../models/Organization.js";
 import { AppError } from "../utils/AppError.js";
-import { SESSION_COOKIE, verifySession, clearSessionCookie } from "../utils/session.js";
+import { SESSION_COOKIE, verifySession, clearSessionCookie, sessionIssuedAt } from "../utils/session.js";
 
 // Identifies the caller from the session cookie and loads the user and their
 // organization fresh from the database. Pending, suspended and other
@@ -26,6 +26,11 @@ export async function requireAuth(req, res, next) {
   if (!user) {
     clearSessionCookie(res);
     throw AppError.unauthorized();
+  }
+  // Issued before the password last changed (e.g. a reset): no longer valid.
+  if (user.passwordChangedAt && sessionIssuedAt(payload) < user.passwordChangedAt.getTime()) {
+    clearSessionCookie(res);
+    throw new AppError("Your password was changed. Please log in again", 401, "SESSION_EXPIRED");
   }
 
   req.user = user;

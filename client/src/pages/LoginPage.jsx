@@ -15,6 +15,7 @@ export default function LoginPage() {
   const location = useLocation();
   const from = location.state?.from;
   const loggedOut = location.state?.loggedOut;
+  const passwordReset = location.state?.passwordReset;
 
   const { bind, handleSubmit, submitting, formError } = useForm({ email: "", password: "" }, validateLogin);
 
@@ -44,6 +45,8 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError ? (
           <Alert>{formError}</Alert>
+        ) : passwordReset ? (
+          <Alert tone="success">Your password was changed. Log in with your new password.</Alert>
         ) : loggedOut ? (
           <Alert tone="success">You've been logged out.</Alert>
         ) : (
@@ -51,7 +54,14 @@ export default function LoginPage() {
         )}
 
         <TextField label="Email" type="email" autoComplete="email" inputMode="email" {...bind("email")} />
-        <PasswordField label="Password" autoComplete="current-password" {...bind("password")} />
+        <div>
+          <PasswordField label="Password" autoComplete="current-password" {...bind("password")} />
+          <div className="mt-1.5 text-right">
+            <Link to="/forgot-password" className="text-sm font-medium text-accent hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        </div>
 
         <Button type="submit" loading={submitting} className="w-full">
           {submitting ? "Logging in…" : "Log in"}

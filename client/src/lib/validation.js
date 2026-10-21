@@ -138,6 +138,15 @@ export function validateLinkName(values) {
   });
 }
 
+// Mirrors forgotPasswordBody / resetPasswordBody in server/src/validators/auth.js.
+export function validateForgotPassword(values) {
+  return collect({ email: checkEmail(values.email) });
+}
+
+export function validateResetPassword(values) {
+  return collect({ newPassword: checkNewPassword(values.newPassword) });
+}
+
 export function validateLogin(values) {
   return collect({
     email: values.email.trim() ? null : "Email is required",

@@ -17,9 +17,20 @@ export function assertSessionConfig() {
 
 // The token only identifies the user. Role and access status are always
 // re-read from the database, so changes take effect on the next request.
+// `iatMs` is the issue time in milliseconds: the standard `iat` has whole
+// seconds only, too coarse to compare with a password change.
 export function signSession(userId) {
-  return jwt.sign({}, secret(), { subject: String(userId), expiresIn: SESSION_TTL_SECONDS, algorithm: "HS256" });
+  return jwt.sign({ iatMs: Date.now() }, secret(), {
+    subject: String(userId),
+    expiresIn: SESSION_TTL_SECONDS,
+    algorithm: "HS256",
+  });
 }
+
+// When a verified session payload was issued, in milliseconds. Sessions
+// signed before iatMs existed fall back to `iat` (seconds).
+export const sessionIssuedAt = (payload) =>
+  typeof payload.iatMs === "number" ? payload.iatMs : payload.iat * 1000;
 
 // Throws jsonwebtoken's TokenExpiredError / JsonWebTokenError on bad tokens.
 export function verifySession(token) {

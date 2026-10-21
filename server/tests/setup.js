@@ -23,6 +23,9 @@ process.env.JWT_SECRET = "test-only-secret-that-is-long-enough-for-hs256-signing
 process.env.STORAGE_DRIVER = "local";
 process.env.STORAGE_LOCAL_DIR = mkdtempSync(path.join(os.tmpdir(), "voiceloop-storage-test-"));
 process.env.TRANSCRIPTION_PROVIDER = "none";
+// Never send real email from tests; reset tests spy on the console provider.
+process.env.EMAIL_PROVIDER = "console";
+delete process.env.RESEND_API_KEY;
 
 const TEST_DB_NAME = "voiceloop_test";
 

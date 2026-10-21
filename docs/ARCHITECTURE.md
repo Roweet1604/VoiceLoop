@@ -81,8 +81,29 @@ Access is stored on the organization: `accessStatus` (`pending`, `active`, `susp
 | `POST /api/auth/login`    | none           | 10 per IP per 15 min | `200` + session cookie, or `401 INVALID_CREDENTIALS` |
 | `POST /api/auth/logout`   | none           | API default         | `204`, cookie cleared |
 | `GET /api/auth/me`        | `requireAuth`  | API default         | `{ user, organization }` with the effective `accessStatus` |
+| `POST /api/auth/forgot-password` | none    | 5 per IP per hour; 3 links per account per hour | Always `200 { message }` with the same text; body `{ email }` |
+| `POST /api/auth/reset-password`  | none    | 10 per IP per 15 min | `200 { message }`, cookie cleared, or `400 INVALID_RESET_TOKEN`; body `{ token, newPassword }` |
 
 Passwords are hashed with bcrypt (12 rounds), must be 10 or more characters, and may be at most 72 bytes (bcrypt's input limit). Login failures always return "Invalid email or password", whether the email exists or not.
+
+### Password reset
+
+`services/passwordReset.js`, for owners and the Super Admin alike.
+
+- **Request.** `forgot-password` answers before doing any lookup, so neither the response nor its timing shows whether an account exists. Afterwards, for a known email: if the account has had fewer than 3 links in the last hour, older unused links are retired, a new one is created, and `CLIENT_URL/reset-password?token=…` is emailed. Past that limit, nothing is sent (logged as a warning); the caller sees the same answer. Failures are logged without the token.
+- **Token.** 32 random bytes, base64url (43 characters), valid for 30 minutes and once. `PasswordResetToken` stores only its SHA-256 hash, with `userId`, `expiresAt`, `usedAt` and `createdAt`; a TTL index removes records a day after they expire.
+- **Reset.** The new password follows the signup rules. Claiming the token (unused and unexpired) and setting the new hash and `passwordChangedAt` happen in one transaction, so a link can't be used twice even concurrently; other unused links for the account are retired too. Every bad token (malformed, unknown, used, expired, operator objects) gets the same `400 INVALID_RESET_TOKEN`.
+- **Sessions.** Session tokens carry `iatMs` (issue time in milliseconds). `requireAuth` refuses any session issued before `User.passwordChangedAt` with `401 SESSION_EXPIRED`, so a reset logs out every device.
+- **Deletion.** Reset tokens belong to users, so account deletion removes them through `USER_DATA` (by `userId`) before deleting the users.
+
+### Email
+
+`services/email` exposes `sendEmail({ to, subject, text, html, idempotencyKey? })`. `EMAIL_PROVIDER` chooses:
+
+- `console` (default): prints the message, link included, to the server log. Development only: with `NODE_ENV=production` it refuses to send, logs an error and prints nothing from the message.
+- `resend`: `POST https://api.resend.com/emails` with `Authorization: Bearer RESEND_API_KEY`, sender `EMAIL_FROM`, and an `Idempotency-Key`. A missing key or sender refuses to send and logs why. Resend's error name and message are reported; the key is never logged.
+
+The server logs the email setup at startup, as an error when it can't deliver (for example `console` in production). **Status:** `console` is implemented and tested. `resend` is implemented and tested against a mocked API only, and is awaiting credentials. Resend's test sender `onboarding@resend.dev` only delivers to the account owner's own address; other recipients need a verified domain. Free plan at the time of writing: 3,000 emails a month, 100 a day (verify on resend.com/pricing).
 
 ### Super Admin provisioning
 
@@ -281,6 +302,7 @@ The owner's detail page fetches the recording with the session cookie and plays 
 | Path | Guard | Page |
 |---|---|---|
 | `/signup`, `/login` | logged-out only | Auth forms |
+| `/forgot-password`, `/reset-password` | none (inside the session gate) | Request a reset link; choose a new password from it |
 | `/waiting-for-approval` | logged in | Status for pending, rejected, suspended or expired owners |
 | `/app/setup` | active owner without a business | Create the business |
 | `/app/dashboard`, `/app/feedback`, `/app/feedback/:feedbackId`, `/app/analytics`, `/app/links`, `/app/settings` | active owner with a business | Sidebar layout (`AppShell`) |
@@ -327,6 +349,9 @@ Stack traces are never sent to the client. They are logged on the server. When `
 | `STORAGE_LOCAL_DIR` | No | `server/private-storage` | Folder for the local driver. Keep it outside any public path. Tests use a temporary folder. |
 | `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only for `s3` | unset | Checked by the S3 stub; not used yet. |
 | `TRANSCRIPTION_PROVIDER` | No | `none`                 | Speech-to-text provider. Only `none` exists. |
+| `EMAIL_PROVIDER` | No      | `console`               | `console` (development: prints emails to the log) or `resend`. |
+| `RESEND_API_KEY` | For `resend` | unset             | Resend API key. Secret: server only. |
+| `EMAIL_FROM`     | For `resend` | unset             | Sender, e.g. `VoiceLoop <no-reply@yourdomain.com>`, on a domain verified in Resend. |
 
 `dotenv` loads `.env` from the current working directory, so start the server from inside `server/` (as `npm run dev` does).
 

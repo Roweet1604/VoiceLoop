@@ -2,9 +2,9 @@
 //
 // DELETION RULE (CLAUDE.md): this must remove ALL of an organization's data
 // from every collection and from audio storage. When you add a collection or
-// a stored file type, update ORGANIZATION_DATA (or the storage section below)
+// a stored file type, update ORGANIZATION_DATA, USER_DATA or STORED_FILES
 // and tests/deletion.test.js in the same change. The "every model is covered"
-// test fails if a new model with an organizationId isn't handled here.
+// test fails if a new model isn't handled here.
 import mongoose from "mongoose";
 import { Organization } from "../models/Organization.js";
 import { User } from "../models/User.js";
@@ -12,8 +12,11 @@ import { Business } from "../models/Business.js";
 import { FeedbackLink } from "../models/FeedbackLink.js";
 import { Feedback } from "../models/Feedback.js";
 import { AuditLog } from "../models/AuditLog.js";
+import { PasswordResetToken } from "../models/PasswordResetToken.js";
 import { AppError } from "../utils/AppError.js";
 import { getStorage } from "./storage/index.js";
+
+const ORGANIZATION_USERS = { role: { $ne: "superadmin" } };
 
 // Collections whose documents belong to an organization through an
 // `organizationId` field. Feedback includes its internal notes (embedded);
@@ -26,8 +29,14 @@ export const ORGANIZATION_DATA = [
   { model: Business, key: "businesses" },
   // Super Admins never belong to an organization; the filter keeps it that
   // way even if data is ever inconsistent.
-  { model: User, key: "users", extraFilter: { role: { $ne: "superadmin" } } },
+  { model: User, key: "users", extraFilter: ORGANIZATION_USERS },
 ];
+
+// Collections whose documents belong to one of the organization's users
+// through a `userId` field. Deleted before the users themselves.
+// (The key avoids the word "password": deletion responses are checked to
+// contain nothing that looks like password data.)
+export const USER_DATA = [{ model: PasswordResetToken, key: "resetTokens" }];
 
 // Every kind of stored file and how to find an organization's keys. Add new
 // file types here (and to tests/deletion.test.js) in the same change.
@@ -103,6 +112,14 @@ export async function deleteOrganizationAccount({ organizationId, confirmName, a
     for (const { keysFor } of STORED_FILES) fileKeys.push(...(await keysFor(orgId, session)));
 
     const deleted = {};
+    // User-owned records first, while the users can still be found.
+    const userIds = (
+      await User.find({ organizationId: orgId, ...ORGANIZATION_USERS }).select("_id").session(session).lean()
+    ).map((u) => u._id);
+    for (const { model, key } of USER_DATA) {
+      const { deletedCount } = await model.deleteMany({ userId: { $in: userIds } }, { session });
+      deleted[key] = deletedCount;
+    }
     for (const { model, key, extraFilter } of ORGANIZATION_DATA) {
       const { deletedCount } = await model.deleteMany({ organizationId: orgId, ...extraFilter }, { session });
       deleted[key] = deletedCount;

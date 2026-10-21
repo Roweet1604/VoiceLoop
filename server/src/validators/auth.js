@@ -45,6 +45,16 @@ export function registerBody(body) {
   });
 }
 
+export function forgotPasswordBody(body) {
+  return collect({ email: checkEmail(body.email) });
+}
+
+// The token isn't checked here: every bad token, malformed ones included,
+// gets the same "invalid or expired link" answer from the route.
+export function resetPasswordBody(body) {
+  return collect({ newPassword: checkNewPassword(body.newPassword) });
+}
+
 // Login only checks shape. Password rules are not re-checked here so that
 // failures do not reveal anything beyond "invalid email or password".
 export function loginBody(body) {

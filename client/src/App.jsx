@@ -11,6 +11,8 @@ import { BusinessGate } from "./context/BusinessContext.jsx";
 import AppShell from "./components/AppShell.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import WaitingPage from "./pages/WaitingPage.jsx";
 import SetupPage from "./pages/SetupPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
@@ -36,6 +38,10 @@ export default function App() {
 
       <Route element={<SessionGate />}>
         <Route index element={<RootRedirect />} />
+
+        {/* Not guest-only: a logged-in user may open a reset link too. */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         <Route element={<GuestOnly />}>
           <Route path="/signup" element={<SignupPage />} />

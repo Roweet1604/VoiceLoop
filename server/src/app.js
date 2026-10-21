@@ -49,6 +49,10 @@ export function createApp({ limits = {} } = {}) {
     createAuthRouter({
       loginLimiter: createLimiter({ windowMs: FIFTEEN_MINUTES, limit: limits.login ?? 10 }),
       registerLimiter: createLimiter({ windowMs: ONE_HOUR, limit: limits.register ?? 5 }),
+      // Per IP. Each account is also limited to 3 links per hour
+      // (services/passwordReset.js).
+      forgotLimiter: createLimiter({ windowMs: ONE_HOUR, limit: limits.forgot ?? 5 }),
+      resetLimiter: createLimiter({ windowMs: FIFTEEN_MINUTES, limit: limits.reset ?? 10 }),
     })
   );
   app.use("/api/super-admin", superAdminRouter);

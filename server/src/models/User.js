@@ -20,6 +20,9 @@ const userSchema = new mongoose.Schema(
       },
     },
     lastLoginAt: { type: Date, default: null },
+    // Sessions issued before this moment are refused (see requireAuth), so a
+    // password reset logs out every existing session.
+    passwordChangedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

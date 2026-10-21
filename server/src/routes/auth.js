@@ -5,7 +5,8 @@ import { Organization } from "../models/Organization.js";
 import { AppError } from "../utils/AppError.js";
 import { validate } from "../middleware/validate.js";
 import { requireAuth } from "../middleware/auth.js";
-import { registerBody, loginBody } from "../validators/auth.js";
+import { registerBody, loginBody, forgotPasswordBody, resetPasswordBody } from "../validators/auth.js";
+import { requestPasswordReset, resetPassword } from "../services/passwordReset.js";
 import { signSession, setSessionCookie, clearSessionCookie } from "../utils/session.js";
 
 const BCRYPT_ROUNDS = 12;
@@ -26,8 +27,24 @@ function sessionPayload(user, organization) {
   };
 }
 
-export function createAuthRouter({ loginLimiter, registerLimiter }) {
+export function createAuthRouter({ loginLimiter, registerLimiter, forgotLimiter, resetLimiter }) {
   const router = Router();
+
+  // Same answer, sent before any lookup, for every valid email: whether an
+  // account exists can't be told from the response or its timing. The link
+  // is created and emailed afterwards (services/passwordReset.js).
+  router.post("/forgot-password", forgotLimiter, validate({ body: forgotPasswordBody }), (req, res) => {
+    requestPasswordReset(req.body.email);
+    res.json({ message: "If an account exists for that email, we sent a link to reset the password." });
+  });
+
+  // Not logged in afterwards: every session, including any on this device,
+  // ends with the reset (requireAuth checks passwordChangedAt).
+  router.post("/reset-password", resetLimiter, validate({ body: resetPasswordBody }), async (req, res) => {
+    await resetPassword({ token: req.body.token, newPassword: req.body.newPassword });
+    clearSessionCookie(res);
+    res.json({ message: "Your password was changed. Log in with your new password." });
+  });
 
   router.post("/register", registerLimiter, validate({ body: registerBody }), async (req, res) => {
     // Only these fields are read. Anything else in the body, including "role",

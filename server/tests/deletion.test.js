@@ -12,11 +12,13 @@ import { Business } from "../src/models/Business.js";
 import { FeedbackLink } from "../src/models/FeedbackLink.js";
 import { Feedback } from "../src/models/Feedback.js";
 import { AuditLog } from "../src/models/AuditLog.js";
-import { ORGANIZATION_DATA, STORED_FILES } from "../src/services/accountDeletion.js";
+import { PasswordResetToken } from "../src/models/PasswordResetToken.js";
+import { ORGANIZATION_DATA, USER_DATA, STORED_FILES } from "../src/services/accountDeletion.js";
+import { waitForPendingResets } from "../src/services/passwordReset.js";
 import { getStorage } from "../src/services/storage/index.js";
 import { SESSION_COOKIE, signSession } from "../src/utils/session.js";
 
-const app = createApp({ limits: { api: 10000, login: 1000, register: 1000, public: 10000, submit: 10000, voice: 10000 } });
+const app = createApp({ limits: { api: 10000, login: 1000, register: 1000, public: 10000, submit: 10000, voice: 10000, forgot: 10000 } });
 const PASSWORD = "correct-horse-battery";
 
 // Each test builds one or two fully populated tenants (including uploads)
@@ -106,15 +108,23 @@ async function tenant(label) {
   expect((await inbox("patch", "/review", { reviewStatus: "reviewed" })).status).toBe(200);
   expect((await inbox("patch", "/complaint-status", { status: "resolved", resolutionSummary: `Refunded ${label}` })).status).toBe(200);
 
-  return { orgId, cookie, email, business, link, slug: business.publicSlug };
+  // An outstanding password reset link (printed by the console provider).
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  expect((await request(app).post("/api/auth/forgot-password").send({ email })).status).toBe(200);
+  await waitForPendingResets();
+  expect(await PasswordResetToken.countDocuments({ userId: reg.body.user.id })).toBe(1);
+
+  return { orgId, userId: reg.body.user.id, cookie, email, business, link, slug: business.publicSlug };
 }
 
 // Everything stored for an organization, for before/after comparisons.
 async function snapshot(orgId) {
   const id = new mongoose.Types.ObjectId(orgId);
+  const users = await User.find({ organizationId: id }).lean();
   return {
     organization: await Organization.findById(id).lean(),
-    users: await User.find({ organizationId: id }).lean(),
+    users,
+    resetTokens: await PasswordResetToken.find({ userId: { $in: users.map((u) => u._id) } }).lean(),
     businesses: await Business.find({ organizationId: id }).lean(),
     links: await FeedbackLink.find({ organizationId: id }).lean(),
     feedback: await Feedback.find({ organizationId: id }).lean(),
@@ -218,7 +228,7 @@ describe("deleting an account", () => {
     expect(res.body.deleted).toEqual({
       organizationId: a.orgId,
       businessName: "Shop a",
-      deleted: { feedback: 4, links: 2, businesses: 1, users: 1 },
+      deleted: { resetTokens: 1, feedback: 4, links: 2, businesses: 1, users: 1 },
       files: { removed: 2, failed: 0 },
     });
     expect(JSON.stringify(res.body)).not.toMatch(/@|password|Cold food|Private note/i);
@@ -229,6 +239,8 @@ describe("deleting an account", () => {
     expect(aAfter.businesses).toHaveLength(0);
     expect(aAfter.links).toHaveLength(0);
     expect(aAfter.feedback).toHaveLength(0);
+    expect(await PasswordResetToken.countDocuments({ userId: a.userId })).toBe(0);
+    expect(bBefore.resetTokens).toHaveLength(1);
     expect(await storedFilesOf(a.business.id)).toEqual([]);
     expect(bBefore.files).toHaveLength(2);
     expect(await User.exists({ email: a.email })).toBeNull();
@@ -249,15 +261,20 @@ describe("deleting an account", () => {
     expect((await deleteAccount(a.orgId, "Shop a")).status).toBe(200);
 
     const orgId = new mongoose.Types.ObjectId(a.orgId);
-    // Every model with an organizationId must be emptied for this tenant, and
-    // must be listed in ORGANIZATION_DATA. A new model that isn't fails here
-    // (DELETION RULE in CLAUDE.md).
-    const handled = new Set([...ORGANIZATION_DATA.map((d) => d.model.modelName), "Organization", "AuditLog"]);
+    // Every model with an organizationId must be emptied for this tenant and
+    // listed in ORGANIZATION_DATA; every model with a userId must be emptied
+    // for its users and listed in USER_DATA. A new model that isn't fails
+    // here (DELETION RULE in CLAUDE.md).
+    const userData = new Set(USER_DATA.map((d) => d.model.modelName));
+    const handled = new Set([...ORGANIZATION_DATA.map((d) => d.model.modelName), ...userData, "Organization", "AuditLog"]);
     for (const name of mongoose.modelNames()) {
       const model = mongoose.model(name);
       if (model.schema.path("organizationId")) {
         expect(handled.has(name), `${name} has organizationId but isn't in ORGANIZATION_DATA`).toBe(true);
         expect(await model.countDocuments({ organizationId: orgId }), name).toBe(0);
+      } else if (model.schema.path("userId")) {
+        expect(userData.has(name), `${name} has userId but isn't in USER_DATA`).toBe(true);
+        expect(await model.countDocuments({ userId: a.userId }), name).toBe(0);
       } else {
         expect(handled.has(name), `${name} isn't covered by the deletion service`).toBe(true);
       }
