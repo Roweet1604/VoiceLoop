@@ -378,16 +378,18 @@ describe("storage drivers", () => {
     }
   });
 
-  it("refuses an S3 driver without its settings, and never pretends to store with it", async () => {
-    expect(() => createStorage({ STORAGE_DRIVER: "s3" })).toThrow(/not configured/);
+  // The S3 driver itself is covered in s3Storage.test.js.
+  it("refuses an S3 driver without its settings, and unknown drivers", async () => {
+    expect(() => createStorage({ STORAGE_DRIVER: "s3" })).toThrow(/STORAGE_DRIVER is "s3" but .* not set/);
     const s3 = createStorage({
       STORAGE_DRIVER: "s3",
       S3_BUCKET: "b",
-      S3_REGION: "r",
+      S3_REGION: "auto",
       S3_ACCESS_KEY_ID: "k",
       S3_SECRET_ACCESS_KEY: "s",
     });
-    await expect(s3.put("x", Buffer.from("x"))).rejects.toThrow(/not implemented/);
+    expect(s3.name).toBe("s3");
+    await expect(s3.put("x", Buffer.from("x"))).rejects.toThrow("Invalid storage key");
     expect(() => createStorage({ STORAGE_DRIVER: "ftp" })).toThrow(/Unknown STORAGE_DRIVER/);
   });
 });

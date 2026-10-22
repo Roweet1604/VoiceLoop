@@ -38,7 +38,8 @@ VoiceLoop/
 
 - In development the client runs on the Vite dev server (`http://localhost:5173`) and the API runs on Express (`http://localhost:5000`).
 - The client calls relative `/api/...` paths. The Vite dev server proxies `/api` to `API_PROXY_TARGET` (default `http://localhost:5000`), so in development the browser sees one origin and the session cookie is first-party.
-- If a deployed client must call an API on another origin, set `VITE_API_URL` at build time. The server allows exactly one browser origin through CORS (`CLIENT_URL`), with credentials enabled.
+- In production the same Express server also serves the built client (`client/dist`), so the site and the API share one address: see "One-service production" below and `docs/DEPLOY.md`.
+- If a deployed client must call an API on another origin instead, set `VITE_API_URL` at build time. The server allows exactly one browser origin through CORS (`CLIENT_URL`), with credentials enabled.
 - The session lives in an httpOnly cookie, so client requests to authenticated routes must use `fetch(url, { credentials: "include" })`.
 - All API routes live under `/api` and exchange JSON. Request bodies are limited to 100 kB.
 
@@ -46,14 +47,26 @@ VoiceLoop/
 
 Each request passes through, in order:
 
-1. `helmet`: sets security headers.
+0. `trust proxy` (from `TRUST_PROXY`, off by default): behind a host's proxy, makes `req.ip` and so the rate limits use each visitor's own address.
+1. `helmet`: sets security headers. When serving the client, its Content-Security-Policy also allows the inline theme script (by hash) and `blob:` audio.
 2. `cors`: allows only `CLIENT_URL`, with credentials.
 3. Rate limiter on `/api`: 300 requests per IP per 15 minutes, then `429`. It runs before body parsing so malformed or oversized requests are counted too.
 4. `express.json({ limit: "100kb" })`: parses JSON bodies.
 5. `cookie-parser`: makes the session cookie available as `req.cookies`.
 6. Route handlers, e.g. `/api/health`, `/api/auth`.
-7. `notFound`: any unmatched route becomes a `404`.
-8. `errorHandler`: turns every error into the standard JSON shape and logs it.
+7. Production only: the built client. Files from `client/dist`, then `index.html` for any other `GET` outside `/api` and `/assets` (so `/f/<slug>`, `/app/...` load the React app).
+8. `notFound`: any unmatched route becomes a `404`.
+9. `errorHandler`: turns every error into the standard JSON shape and logs it.
+
+### One-service production
+
+With `NODE_ENV=production` (`npm start` in the project folder, or `npm run start:prod` in `server/`), `src/index.js`:
+
+- **Checks settings first** (`config/startupChecks.js`) and stops with a clear list if `MONGODB_URI` or `CLIENT_URL` is missing. `JWT_SECRET` (missing, under 32 characters or the placeholder) stops the server in every environment. `EMAIL_PROVIDER=console` and a missing `TRUST_PROXY` only log warnings.
+- **Serves the built client** from `client/dist` (or `CLIENT_DIST_DIR`), built with `npm run build` in the project folder after installing the client's packages (`config/clientApp.js`). Hashed files in `/assets` are cached for a year (`immutable`); `index.html` and other files are sent with `Cache-Control: no-cache`, so a new deploy shows up on the next visit. Without a build it logs a warning and serves the API only.
+- **Marks the session cookie `Secure`** (still `HttpOnly`, `SameSite=Lax`).
+
+In development none of this applies: Vite serves the client and the server is API-only, as before.
 
 ## Authentication and access
 
@@ -302,9 +315,9 @@ A business is publicly available only when it's active and its organization's ac
 `services/storage` is the only code that touches stored files. Drivers implement `put(key, buffer)`, `getStream(key)` and `delete(key)`, chosen by `STORAGE_DRIVER`:
 
 - `local` (default): files under `server/private-storage/` (or `STORAGE_LOCAL_DIR`). That folder is gitignored and no route serves it; audio is only read through `GET /api/feedback/:id/audio` after the ownership check. Suitable for development, or a single server with a persistent disk.
-- `s3`: a stub. It refuses to start unless `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are set, and even then rejects every operation. **Not implemented.**
+- `s3`: any S3-compatible service (AWS S3, Cloudflare R2, Backblaze B2) through `@aws-sdk/client-s3`. It refuses to start, naming what's missing, unless `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` are set; R2 also needs `S3_ENDPOINT` and uses region `auto`. Path-style addressing is used whenever an endpoint is set (`S3_FORCE_PATH_STYLE` overrides). The bucket must be private: audio is only read through the same authorised route. Account deletion, single-item deletion and retention delete objects through the same `delete(key)`. Tested with the S3 client mocked (`tests/s3Storage.test.js`); not yet run against a real bucket.
 
-Keys are `<businessId>/<32 random hex characters>.<ext>`, validated against a strict pattern before any file system access, and never sent to a client.
+Keys are `<businessId>/<32 random hex characters>.<ext>`, validated against a strict pattern before any file system or bucket access, and never sent to a client.
 
 `services/transcription` selects a provider with `TRANSCRIPTION_PROVIDER`. Only `none` exists: it reports itself unavailable and never calls an external service. **No speech-to-text is integrated.**
 
@@ -324,13 +337,13 @@ The owner's detail page fetches the recording with the session cookie and plays 
 | `/f/:slug`, `/f/:slug/:code` | none (public, outside the session gate) | Customer feedback form |
 | `/super-admin` | Super Admin | Platform overview and the accounts table, with a History panel per account |
 | `/super-admin/audit-logs` | Super Admin | Filterable audit log |
-| `/health` | none | API reachability check |
+| `/health` | none | API reachability check (client page; the API endpoint is `GET /api/health`) |
 
 `BusinessGate` (in `context/BusinessContext.jsx`) loads the business for every `/app` page, sends owners without one to `/app/setup`, and re-checks the session on a `401`/`403` so revoked access lands on the waiting page.
 
 ### Response shapes
 
-Success responses are route-specific JSON, e.g. `GET /api/health` returns `{ "status": "ok" }`.
+Success responses are route-specific JSON, e.g. `GET /api/health` returns `{ "ok": true }` (it doesn't touch the database, so hosts can use it as a liveness check).
 
 Every error uses one shape:
 
@@ -353,19 +366,23 @@ Stack traces are never sent to the client. They are logged on the server. When `
 
 | Variable      | Required | Default                 | Purpose |
 |---------------|----------|-------------------------|---------|
-| `NODE_ENV`    | No       | unset (development)     | Set to `production` to hide internal error messages. |
+| `NODE_ENV`    | In production | unset (development) | `production` hides internal error messages, marks the session cookie `Secure`, serves the built client and runs the production startup checks. `npm start` (project folder) sets it. |
 | `PORT`        | No       | `5000`                  | Port the API listens on. |
-| `MONGODB_URI` | Yes, for the database | unset          | MongoDB connection string. If unset, the server starts without a database and logs a warning. |
-| `CLIENT_URL`  | No       | `http://localhost:5173` | The only browser origin allowed by CORS. |
+| `MONGODB_URI` | Yes, for the database | unset          | MongoDB connection string. If unset, a development server starts without a database and logs a warning; a production server refuses to start. |
+| `CLIENT_URL`  | In production | `http://localhost:5173` | The only browser origin allowed by CORS, and the base of password reset links. In production, the site's public address (required). |
+| `TRUST_PROXY` | In production | off | Express `trust proxy`. `1` behind one proxy (Render and most hosts); also `true` (any proxy, avoid), or another Express value such as `loopback`. Without it behind a proxy, all visitors share one rate limit. |
+| `CLIENT_DIST_DIR` | No  | `client/dist`           | Production only: folder of the built client to serve. |
 | `JWT_SECRET`  | Yes      | none                    | Signs session tokens. At least 32 random characters; the server refuses to start otherwise. |
 | `COOKIE_SAMESITE` | No   | `lax`                   | `SameSite` attribute of the session cookie. |
 | `MONGODB_TEST_URI` | No  | unset                   | Database for `npm test`; its name must end in `_test`. If unset, tests use the `MONGODB_URI` cluster with database `voiceloop_test`. |
-| `STORAGE_DRIVER` | No    | `local`                 | Audio storage driver: `local` or `s3` (stub, not implemented). Unknown or unconfigured values stop the server at startup. |
+| `STORAGE_DRIVER` | No    | `local`                 | Audio storage driver: `local` or `s3`. Unknown or unconfigured values stop the server at startup. |
 | `STORAGE_LOCAL_DIR` | No | `server/private-storage` | Folder for the local driver. Keep it outside any public path. Tests use a temporary folder. |
-| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only for `s3` | unset | Checked by the S3 stub; not used yet. |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only for `s3` | unset | Bucket, region (`auto` for R2) and access key. The keys are secret. |
+| `S3_ENDPOINT` | For R2/B2 | unset (AWS S3) | The provider's S3 API address, e.g. `https://<account id>.r2.cloudflarestorage.com`. |
+| `S3_FORCE_PATH_STYLE` | No | `true` when `S3_ENDPOINT` is set | `true`/`false`: bucket name in the path instead of the host name. |
 | `TRANSCRIPTION_PROVIDER` | No | `none`                 | Speech-to-text provider. Only `none` exists. |
 | `RETENTION_DAYS` | No | `45`                   | Feedback older than this is deleted automatically, with its recording. Whole number from 1 to 3650; anything else stops the server at startup. |
-| `EMAIL_PROVIDER` | No      | `console`               | `console` (development: prints emails to the log) or `resend`. |
+| `EMAIL_PROVIDER` | No      | `console`               | `console` (development: prints emails to the log) or `resend`. In production `console` is allowed with a startup warning: reset emails are not sent and links are never logged; use the Super Admin's Reset link instead. |
 | `RESEND_API_KEY` | For `resend` | unset             | Resend API key. Secret: server only. |
 | `EMAIL_FROM`     | For `resend` | unset             | Sender, e.g. `VoiceLoop <no-reply@yourdomain.com>`, on a domain verified in Resend. |
 

@@ -29,7 +29,7 @@ cd server && npm test        # Vitest + Supertest against the *_test database
 cd client && npm run build   # production build into client/dist
 ```
 
-On startup the server logs the audio storage driver, transcription status, email provider status and retention period. It refuses to start with a missing or weak `JWT_SECRET`, an unknown `STORAGE_DRIVER`/`TRANSCRIPTION_PROVIDER`/`EMAIL_PROVIDER`, or an invalid `RETENTION_DAYS`. `GET http://localhost:5000/api/health` answers `{ "status": "ok" }`.
+On startup the server logs the audio storage driver, transcription status, email provider status and retention period. It refuses to start with a missing or weak `JWT_SECRET`, an unknown `STORAGE_DRIVER`/`TRANSCRIPTION_PROVIDER`/`EMAIL_PROVIDER`, or an invalid `RETENTION_DAYS`. `GET http://localhost:5000/api/health` answers `{ "ok": true }`. For production mode and hosting, see [DEPLOY.md](DEPLOY.md).
 
 Start the server from inside `server/` (as `npm run dev` does): `dotenv` reads `.env` from the current directory.
 
@@ -48,9 +48,11 @@ Secrets go in `server/.env` locally and in the host's environment settings in pr
 | `JWT_SECRET` | **Yes** | none | Signs sessions. At least 32 random characters. Secret. Changing it logs everyone out. |
 | `COOKIE_SAMESITE` | No | `lax` | Keep `lax` while client and API share a site. `none` needs CSRF protection first (THREAT_MODEL.md §4). |
 | `MONGODB_TEST_URI` | No | unset | Test database; name must end in `_test`. If unset, tests use the `MONGODB_URI` cluster with database `voiceloop_test`. |
-| `STORAGE_DRIVER` | No | `local` | `local`: files in `server/private-storage/`. `s3`: **not implemented** (refuses every upload). |
+| `STORAGE_DRIVER` | No | `local` | `local`: files in `server/private-storage/`. `s3`: an S3-compatible bucket such as Cloudflare R2 (see DEPLOY.md). |
 | `STORAGE_LOCAL_DIR` | No | `server/private-storage` | Folder for the local driver. Must be private and persistent. |
-| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only with `STORAGE_DRIVER=s3` | unset | Checked for presence by the stub; not used. Secret (the keys). |
+| `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Only with `STORAGE_DRIVER=s3` | unset | Bucket, region (`auto` for R2) and access key. Secret (the keys). |
+| `S3_ENDPOINT` | For R2/B2 | unset | The provider's S3 API address. Not needed for AWS S3. |
+| `TRUST_PROXY` | In production | off | `1` behind a host's proxy (Render), so rate limits see each visitor. |
 | `TRANSCRIPTION_PROVIDER` | No | `none` | Speech-to-text. Only `none` exists. (This is the variable sometimes referred to as "STT_PROVIDER"; the code reads `TRANSCRIPTION_PROVIDER`, and there is no `STT_PROVIDER` variable.) |
 | `RETENTION_DAYS` | No | `45` | Feedback (with notes and recording) is deleted this many days after submission. Whole number 1–3650; anything else stops the server. The Privacy Policy and Terms say 45: update them if you change it. |
 | `EMAIL_PROVIDER` | **Yes in production** (`resend`) | `console` | `console` prints emails (including reset links) to the server log, development only. `resend` sends through Resend. |
@@ -156,7 +158,7 @@ Run against a fresh database. Use two browsers (or a private window) so the owne
 |---|---|---|---|
 | MongoDB Atlas | Database | **Implemented and tested** | The test suite runs against Atlas (`voiceloop_test`). Network access is currently open to all IPs; restrict before production. |
 | Local private storage | Voice recordings | **Implemented and tested** | Default driver. Production needs a persistent private disk, or the S3 driver below. |
-| S3-compatible storage (AWS S3, Cloudflare R2, Backblaze B2) | Production audio storage | **Not implemented** | `services/storage/s3.js` is a stub that refuses every operation. Needed before production on hosts with ephemeral disks. |
+| S3-compatible storage (AWS S3, Cloudflare R2, Backblaze B2) | Production audio storage | **Implemented, awaiting credentials** | `services/storage/s3.js` with `@aws-sdk/client-s3`. Tested with the client mocked; not yet run against a real bucket. Needed on hosts with ephemeral disks (DEPLOY.md). |
 | Speech-to-text | Transcripts of voice feedback | **Not implemented** | Only the `none` provider exists. Voice feedback is stored with "Transcription unavailable"; no transcript is ever invented. The provider interface is in `services/transcription/index.js`. |
 | Resend | Password reset email | **Implemented, awaiting credentials** | Request format and error handling are tested with a mocked API (`passwordReset.test.js`). Real delivery hasn't been verified: it needs `RESEND_API_KEY`, `EMAIL_FROM` and a verified sending domain. |
 | Console email | Development email | **Implemented and tested** | Prints emails to the server log; refuses in production. |
@@ -168,8 +170,8 @@ Run against a fresh database. Use two browsers (or a private window) so the owne
 
 These were found in the security review and are not done. Details are in THREAT_MODEL.md.
 
-1. Set Express `trust proxy` for the chosen host, or rate limits apply to all visitors as one.
-2. Implement the S3 driver, or use a host with a persistent private disk for `server/private-storage`.
+1. Set `TRUST_PROXY=1` on the host, or rate limits apply to all visitors as one.
+2. Set `STORAGE_DRIVER=s3` with an R2 bucket, or use a host with a persistent private disk for `server/private-storage`.
 3. Set `NODE_ENV=production`, `CLIENT_URL`, `EMAIL_PROVIDER=resend` with its two values, and a fresh `JWT_SECRET`.
 4. Restrict Atlas network access; enable Atlas backups (and note they keep deleted data until they expire).
 5. Serve the client with a Content-Security-Policy and `frame-ancestors` header.

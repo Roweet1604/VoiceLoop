@@ -1,0 +1,9 @@
+{
+  "name": "voiceloop",
+  "private": true,
+  "description": "Scripts for building and running VoiceLoop as one service. The app itself lives in client/ and server/.",
+  "scripts": {
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server run start:prod"
+  }
+}

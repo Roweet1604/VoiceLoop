@@ -12,6 +12,8 @@ import inboxRouter from "./routes/inbox.js";
 import { createExportRouter } from "./routes/export.js";
 import analyticsRouter from "./routes/analytics.js";
 import { createPublicRouter } from "./routes/public.js";
+import { clientAppRouter, clientContentSecurityPolicy } from "./config/clientApp.js";
+import { trustProxySetting } from "./config/startupChecks.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -23,10 +25,16 @@ const ONE_HOUR = 60 * 60 * 1000;
 // Builds the Express app without starting a server, so tests can drive it
 // with Supertest. `limits` lets tests loosen or tighten the rate limiters and
 // the export row cap (limits.exportRows).
-export function createApp({ limits = {} } = {}) {
+//
+// `clientApp` (from loadClientApp, production only) also serves the built
+// React app from this server; without it the server is API-only, as in
+// development. `trustProxy` is Express's "trust proxy" setting (TRUST_PROXY):
+// behind a host's proxy it makes rate limits see each visitor's own address.
+export function createApp({ limits = {}, clientApp = null, trustProxy = trustProxySetting(process.env.TRUST_PROXY) } = {}) {
   const app = express();
+  app.set("trust proxy", trustProxy);
 
-  app.use(helmet());
+  app.use(clientApp ? helmet({ contentSecurityPolicy: clientContentSecurityPolicy(helmet, clientApp) }) : helmet());
   // credentials: true lets the browser send the session cookie cross-origin.
   // The exposed headers let the client read the export's file name and
   // whether it was cut off when the API is on another origin.
@@ -78,6 +86,9 @@ export function createApp({ limits = {} } = {}) {
       voiceLimiter: createLimiter({ windowMs: TEN_MINUTES, limit: limits.voice ?? 5 }),
     })
   );
+
+  // The React app for every other page (/, /f/<slug>, /app/...), after the API.
+  if (clientApp) app.use(clientAppRouter(clientApp));
 
   app.use(notFound);
   app.use(errorHandler);

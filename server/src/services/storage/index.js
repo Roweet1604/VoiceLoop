@@ -4,7 +4,8 @@
 //   getStream(key)     -> { stream, sizeBytes }; StorageNotFoundError if missing
 //   delete(key)        removes the object; missing objects are not an error
 //
-// STORAGE_DRIVER picks the driver: "local" (default) or "s3" (stub, see s3.js).
+// STORAGE_DRIVER picks the driver: "local" (default) or "s3" (any S3-compatible
+// service such as AWS S3 or Cloudflare R2; settings in s3.js).
 // Only storage keys go into MongoDB, never the audio itself.
 import { fileURLToPath } from "node:url";
 import { createLocalStorage } from "./local.js";
