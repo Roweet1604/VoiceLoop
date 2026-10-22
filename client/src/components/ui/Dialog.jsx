@@ -21,13 +21,13 @@ export default function Dialog({ title, description, busy = false, onClose, chil
         e.preventDefault();
         if (!busy) onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-border bg-surface p-0 text-ink shadow-sm backdrop:bg-ink/40"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-dialog border border-border bg-panel p-0 text-text shadow-card backdrop:bg-scrim"
     >
       <div className="px-6 pt-5">
-        <h2 id={titleId} className="text-base font-semibold text-ink">
+        <h2 id={titleId} className="text-base font-semibold text-text">
           {title}
         </h2>
-        {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
+        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
       </div>
       {children}
     </dialog>
@@ -37,7 +37,7 @@ export default function Dialog({ title, description, busy = false, onClose, chil
 // Footer row for dialog actions; place it last inside the dialog's form.
 export function DialogFooter({ children }) {
   return (
-    <div className="mt-5 flex justify-end gap-2 rounded-b-lg border-t border-border bg-canvas px-6 py-3">
+    <div className="mt-5 flex justify-end gap-2 flex-wrap rounded-b-dialog border-t border-border bg-panel2 px-6 py-3">
       {children}
     </div>
   );

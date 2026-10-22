@@ -81,7 +81,7 @@ export function ToggleLinkDialog({ link, onClose, onSaved }) {
   return (
     <Dialog title={deactivating ? `Deactivate "${link.name}"?` : `Activate "${link.name}"?`} busy={submitting} onClose={onClose}>
       <form onSubmit={onSubmit}>
-        <div className="space-y-3 px-6 pt-3 text-sm text-ink-muted">
+        <div className="space-y-3 px-6 pt-3 text-sm text-muted">
           {deactivating ? (
             <>
               <p>

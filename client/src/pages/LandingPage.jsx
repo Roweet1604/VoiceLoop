@@ -99,7 +99,7 @@ export default function LandingPage() {
           <ol className="mt-6 grid gap-6 sm:grid-cols-3 sm:gap-8">
             {STEPS.map((step, index) => (
               <li key={step.title} className="border-t-2 border-accent pt-4">
-                <span className="text-sm font-semibold text-accent">Step {index + 1}</span>
+                <span className="text-sm font-semibold text-accentText">Step {index + 1}</span>
                 <h3 className="mt-1 text-base font-semibold text-ink">{step.title}</h3>
                 <p className="mt-2 text-sm text-ink-muted">{step.text}</p>
               </li>
@@ -115,7 +115,7 @@ export default function LandingPage() {
             <ul className="mt-6 grid gap-x-10 gap-y-8 sm:grid-cols-2">
               {FEATURES.map(({ Icon, title, text }) => (
                 <li key={title} className="flex gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accentText">
                     <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
@@ -131,7 +131,7 @@ export default function LandingPage() {
         <section aria-labelledby="access-heading" className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
           <div className="flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 shadow-xs sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-3">
-              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-accentText" aria-hidden="true" />
               <div>
                 <h2 id="access-heading" className="text-base font-semibold text-ink">
                   Access is approved manually
@@ -151,7 +151,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 to="/login"
-                className="rounded-sm text-sm font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="rounded-sm text-sm font-medium text-accentText hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 Log in
               </Link>

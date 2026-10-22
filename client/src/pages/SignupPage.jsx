@@ -39,7 +39,7 @@ export default function SignupPage() {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-accent hover:underline">
+          <Link to="/login" className="font-medium text-accentText hover:underline">
             Log in
           </Link>
         </>
@@ -67,11 +67,11 @@ export default function SignupPage() {
         </p>
         <p className="text-xs text-ink-muted">
           By requesting access you agree to the{" "}
-          <Link to="/terms" className="font-medium text-accent hover:underline">
+          <Link to="/terms" className="font-medium text-accentText hover:underline">
             Terms
           </Link>{" "}
           and{" "}
-          <Link to="/privacy" className="font-medium text-accent hover:underline">
+          <Link to="/privacy" className="font-medium text-accentText hover:underline">
             Privacy Policy
           </Link>
           .

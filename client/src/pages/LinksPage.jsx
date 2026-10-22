@@ -5,6 +5,7 @@ import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import PublicLink from "../components/PublicLink.jsx";
 import QrCode from "../components/QrCode.jsx";
+import StatusPill from "../components/ui/StatusPill.jsx";
 import { LinkNameDialog, ToggleLinkDialog } from "../components/links/LinkDialogs.jsx";
 import { useBusiness, useHandleAccessError } from "../context/BusinessContext.jsx";
 import { api } from "../lib/api.js";
@@ -53,11 +54,11 @@ export default function LinksPage() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-ink">Links and QR codes</h1>
-          <p className="mt-1 text-sm text-ink-muted">
+          <h1 className="text-lg font-semibold text-text">Links and QR codes</h1>
+          <p className="mt-1 text-sm text-muted">
             Use a separate link for each place or channel to see where feedback comes from.
           </p>
         </div>
@@ -68,10 +69,10 @@ export default function LinksPage() {
       </div>
 
       {notice && (
-        <Alert tone="success" className="mt-4">
+        <Alert tone="success">
           <div className="flex items-start justify-between gap-3">
             <span>{notice}</span>
-            <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="text-success hover:opacity-70">
+            <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="rounded-sm text-okText hover:opacity-70 focus-visible:outline-2 focus-visible:outline-accent">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -79,7 +80,7 @@ export default function LinksPage() {
       )}
 
       {state.error && (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Alert className="flex-1">{state.error.message}</Alert>
           <Button variant="secondary" onClick={load} loading={state.loading}>
             {!state.loading && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
@@ -89,22 +90,23 @@ export default function LinksPage() {
       )}
 
       {state.loading && !state.links && (
-        <div className="mt-10 flex items-center justify-center gap-2 text-sm text-ink-muted" role="status">
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted" role="status">
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
           Loading links…
         </div>
       )}
 
       {state.links?.length === 0 && (
-        <Card className="mt-6 text-center">
-          <p className="text-sm text-ink-muted">No links yet. Create one to get a shareable address and QR code.</p>
+        <Card className="text-center">
+          <p className="text-sm text-muted">No links yet. Create one to get a shareable address and QR code.</p>
         </Card>
       )}
 
       {state.links && state.links.length > 0 && (
-        <ul className="mt-6 space-y-3">
+        // Cards at least 430px wide: 2 columns at 1100px, 3 from 1500px.
+        <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(min(100%,430px),1fr))]">
           {state.links.map((link) => (
-            <li key={link.id}>
+            <li key={link.id} className="flex">
               <LinkCard
                 link={link}
                 url={publicFeedbackUrl(business.publicSlug, link.code)}
@@ -130,25 +132,18 @@ export default function LinksPage() {
 
 function LinkCard({ link, url, filename, onRename, onToggle }) {
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex flex-col gap-4 sm:flex-row">
+    // QR beside the details when the card is wide enough, stacked otherwise.
+    <Card className="@container w-full p-5">
+      <div className="flex flex-col gap-5 @[24rem]:flex-row">
         <QrCode url={url} filename={filename} dimmed={!link.isActive} />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold break-words text-ink">{link.name}</h2>
-            {link.isDefault && (
-              <span className="rounded-sm bg-subtle px-1.5 py-0.5 text-xs font-medium text-ink-muted">Main</span>
-            )}
-            <span
-              className={`rounded-sm px-1.5 py-0.5 text-xs font-medium ${
-                link.isActive ? "bg-success-soft text-success" : "bg-subtle text-ink-muted"
-              }`}
-            >
-              {link.isActive ? "Active" : "Inactive"}
-            </span>
+            <h2 className="text-sm font-semibold break-words text-text">{link.name}</h2>
+            {link.isDefault && <StatusPill>Main</StatusPill>}
+            <StatusPill tone={link.isActive ? "ok" : "neutral"}>{link.isActive ? "Active" : "Inactive"}</StatusPill>
           </div>
-          <p className="mt-1 text-sm text-ink-muted">
+          <p className="mt-1 text-sm text-muted">
             {link.feedbackCount} {link.feedbackCount === 1 ? "submission" : "submissions"}
           </p>
 
@@ -156,12 +151,12 @@ function LinkCard({ link, url, filename, onRename, onToggle }) {
             <PublicLink url={url} label={`Link for ${link.name}`} />
           </div>
           {!link.isActive && (
-            <p className="mt-2 text-xs text-ink-muted">
+            <p className="mt-2 text-xs text-muted">
               Inactive: customers using this link or QR code see “This feedback page isn't available”.
             </p>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-2.5">
             <Button variant="secondary" size="sm" onClick={onRename} aria-label={`Rename ${link.name}`}>
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Rename

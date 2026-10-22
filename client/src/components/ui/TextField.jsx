@@ -1,9 +1,9 @@
 import { useId } from "react";
 
 export const inputClasses =
-  "block w-full rounded-md border bg-surface px-3 py-2 text-sm text-ink shadow-xs placeholder:text-ink-subtle " +
-  "transition-colors focus:border-accent focus:outline-2 focus:outline-offset-0 focus:outline-accent/20 " +
-  "disabled:cursor-not-allowed disabled:bg-subtle";
+  "block w-full rounded-control border bg-panel2 px-3 py-2 text-sm text-text placeholder:text-faint " +
+  "transition-colors focus:border-accent focus:outline-2 focus:outline-offset-1 focus:outline-accent " +
+  "disabled:cursor-not-allowed disabled:opacity-60";
 
 // Label, input, hint and error wired together for screen readers.
 // `trailing` renders inside the input on the right (e.g. a show/hide toggle).
@@ -16,7 +16,7 @@ export default function TextField({ label, hint, error, trailing, multiline = fa
 
   return (
     <div className={className}>
-      <label htmlFor={id} className="block text-sm font-medium text-ink">
+      <label htmlFor={id} className="block text-sm font-semibold text-text">
         {label}
       </label>
       <div className="relative mt-1.5">
@@ -24,7 +24,7 @@ export default function TextField({ label, hint, error, trailing, multiline = fa
           id={id}
           aria-invalid={error ? true : undefined}
           aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
-          className={`${inputClasses} ${error ? "border-danger" : "border-border-strong"} ${trailing ? "pr-10" : ""} ${multiline ? "resize-y" : ""}`}
+          className={`${inputClasses} ${error ? "border-danger" : "border-border"} ${trailing ? "pr-10" : ""} ${multiline ? "resize-y" : ""}`}
           {...inputProps}
         />
         {trailing && <div className="absolute inset-y-0 right-0 flex items-center pr-1">{trailing}</div>}
@@ -35,7 +35,7 @@ export default function TextField({ label, hint, error, trailing, multiline = fa
         </p>
       ) : (
         hint && (
-          <p id={hintId} className="mt-1.5 text-xs text-ink-muted">
+          <p id={hintId} className="mt-1.5 text-xs text-muted">
             {hint}
           </p>
         )

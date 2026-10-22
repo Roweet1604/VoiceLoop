@@ -144,7 +144,7 @@ export default function PrivacyPage() {
         <p>
           Each business decides why it collects feedback and what it does with it. The business is responsible for telling
           its customers how it uses their feedback, for answering their requests, and for following the laws that apply
-          to it. See our <Link to="/terms" className="font-medium text-accent hover:underline">Terms</Link>.
+          to it. See our <Link to="/terms" className="font-medium text-accentText hover:underline">Terms</Link>.
         </p>
       </Section>
 

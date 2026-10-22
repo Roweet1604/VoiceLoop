@@ -17,11 +17,15 @@ export default function LandingCards({ wording, reviewUrl, onChooseFeedback, pre
     />
   );
 
+  // Sized by its own width, so inside the phone-width preview frame it
+  // stacks as on a phone even on a wide screen.
   if (preview) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className={CARD_CLASSES}>{reviewBody}</div>
-        <div className={CARD_CLASSES}>{feedbackBody}</div>
+      <div className="@container">
+        <div className="grid gap-3 @lg:grid-cols-2">
+          <div className={CARD_CLASSES}>{reviewBody}</div>
+          <div className={CARD_CLASSES}>{feedbackBody}</div>
+        </div>
       </div>
     );
   }
@@ -43,20 +47,20 @@ export default function LandingCards({ wording, reviewUrl, onChooseFeedback, pre
   );
 }
 
-const CARD_CLASSES = "flex w-full flex-col rounded-lg border border-border bg-surface p-5 text-ink shadow-xs";
+const CARD_CLASSES = "flex w-full flex-col rounded-lg border border-border bg-panel p-5 text-text shadow-xs";
 const INTERACTIVE =
-  "transition-colors hover:border-border-strong hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "transition-colors hover:border-border-strong hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 function CardBody({ Icon, title, text, action }) {
   return (
     <>
-      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-subtle text-ink-muted">
+      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-panel2 text-muted">
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <span className="mt-3 block text-base font-semibold break-words text-ink">{title}</span>
-      <span className="mt-1 block flex-1 text-sm break-words text-ink-muted">{text}</span>
+      <span className="mt-3 block text-base font-semibold break-words text-text">{title}</span>
+      <span className="mt-1 block flex-1 text-sm break-words text-muted">{text}</span>
       {/* Looks like a button; the whole card is the control. */}
-      <span className="mt-4 inline-flex items-center justify-center rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-ink shadow-xs">
+      <span className="mt-4 inline-flex items-center justify-center rounded-md border border-border-strong bg-panel px-4 py-2 text-sm font-medium text-text shadow-xs">
         {action}
       </span>
     </>

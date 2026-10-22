@@ -7,7 +7,7 @@ const numberFormat = new Intl.NumberFormat();
 const MAX_DAILY_BARS = 92;
 
 // 0 -> 1, 7 -> 10, 23 -> 25: a round top for the scale.
-function niceMax(value) {
+export function niceMax(value) {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   return [1, 2, 2.5, 5, 10].map((step) => step * magnitude).find((candidate) => candidate >= value);
@@ -58,12 +58,12 @@ export default function VolumeChart({ volume }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <p className="min-h-5 text-xs text-ink-muted tabular-nums">{readout}</p>
+        <p className="min-h-5 text-xs text-muted tabular-nums">{readout}</p>
         <button
           type="button"
           onClick={() => setShowTable((v) => !v)}
           aria-expanded={showTable}
-          className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm text-xs font-medium text-accentText hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {showTable ? <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" /> : <Table2 className="h-3.5 w-3.5" aria-hidden="true" />}
           {showTable ? "Show chart" : "Show as table"}
@@ -74,7 +74,7 @@ export default function VolumeChart({ volume }) {
         <div className="mt-3 max-h-72 overflow-y-auto rounded-md border border-border">
           <table className="w-full text-sm">
             <caption className="sr-only">Feedback per {unit}</caption>
-            <thead className="sticky top-0 bg-canvas text-xs text-ink-muted">
+            <thead className="sticky top-0 bg-bg text-xs text-muted">
               <tr>
                 <th scope="col" className="px-3 py-2 text-left font-medium">{weekly ? "Week" : "Day"}</th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">Feedback</th>
@@ -83,8 +83,8 @@ export default function VolumeChart({ volume }) {
             <tbody className="divide-y divide-border">
               {buckets.map((b) => (
                 <tr key={b.from}>
-                  <td className="px-3 py-1.5 text-ink">{bucketLabel(b, withYear)}</td>
-                  <td className={`px-3 py-1.5 text-right tabular-nums ${b.count ? "text-ink" : "text-ink-muted"}`}>
+                  <td className="px-3 py-1.5 text-text">{bucketLabel(b, withYear)}</td>
+                  <td className={`px-3 py-1.5 text-right tabular-nums ${b.count ? "text-text" : "text-muted"}`}>
                     {numberFormat.format(b.count)}
                   </td>
                 </tr>
@@ -96,7 +96,7 @@ export default function VolumeChart({ volume }) {
         <div className="mt-3">
           <div className="flex gap-2">
             {/* Y scale: just the top and zero; the gridlines carry the rest. */}
-            <div className="flex h-40 w-6 shrink-0 flex-col justify-between text-right text-[11px] leading-none text-ink-muted tabular-nums" aria-hidden="true">
+            <div className="flex h-40 w-6 shrink-0 flex-col justify-between text-right text-[11px] leading-none text-muted tabular-nums" aria-hidden="true">
               <span>{numberFormat.format(scaleMax)}</span>
               <span>0</span>
             </div>
@@ -123,7 +123,7 @@ export default function VolumeChart({ volume }) {
               </div>
             </div>
           </div>
-          <div className="mt-1.5 ml-8 flex justify-between text-[11px] text-ink-muted" aria-hidden="true">
+          <div className="mt-1.5 ml-8 flex justify-between text-[11px] text-muted" aria-hidden="true">
             {xLabels.map((b, i) => (
               <span key={`${b.from}-${i}`}>{formatDay(b.from, { withYear })}</span>
             ))}

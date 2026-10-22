@@ -37,17 +37,19 @@ export default function QrCode({ url, filename, dimmed = false }) {
   }
 
   return (
-    <div className="flex w-32 shrink-0 flex-col items-center gap-2">
+    // The tile is white in both themes (bg-white is a fixed colour, not a
+    // theme token) so the code always scans.
+    <div className="flex w-[150px] shrink-0 flex-col items-stretch gap-2">
       <div
-        className={`flex h-32 w-32 items-center justify-center rounded-md border border-border bg-white p-1 ${dimmed ? "opacity-40" : ""}`}
+        className={`flex h-[150px] w-[150px] items-center justify-center rounded-control border border-border bg-white p-1.5 ${dimmed ? "opacity-40" : ""}`}
       >
         {state.dataUrl && <img src={state.dataUrl} alt={`QR code for ${url}`} className="h-full w-full" />}
         {!state.dataUrl && !state.error && (
-          <LoaderCircle className="h-4 w-4 animate-spin text-ink-subtle" aria-label="Generating QR code" />
+          <LoaderCircle className="h-4 w-4 animate-spin text-faint" aria-label="Generating QR code" />
         )}
         {state.error && <p className="px-2 text-center text-xs text-danger">Couldn't generate QR code</p>}
       </div>
-      <Button variant="secondary" size="sm" onClick={download} disabled={!state.dataUrl} className="w-full">
+      <Button variant="secondary" size="sm" onClick={download} disabled={!state.dataUrl} className="w-full whitespace-nowrap">
         <Download className="h-3.5 w-3.5" aria-hidden="true" />
         Download PNG
       </Button>

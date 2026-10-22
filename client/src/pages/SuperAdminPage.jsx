@@ -150,7 +150,7 @@ export default function SuperAdminPage() {
                 {count !== undefined && (
                   <span
                     className={`rounded-sm px-1.5 text-xs ${
-                      selected ? "bg-accent-soft text-accent" : "bg-subtle text-ink-muted"
+                      selected ? "bg-accent-soft text-accentText" : "bg-subtle text-ink-muted"
                     } ${v.id === "pending" && count > 0 && !selected ? "bg-warning-soft text-warning" : ""}`}
                   >
                     {count}

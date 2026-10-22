@@ -34,11 +34,11 @@ export default function PublicLink({ url, label = "Public feedback link" }) {
           value={url}
           aria-label={label}
           onFocus={(e) => e.target.select()}
-          className={`${inputClasses} min-w-0 border-border-strong bg-canvas font-mono text-xs`}
+          className={`${inputClasses} min-w-0 border-border-strong bg-bg font-mono text-xs`}
         />
         <Button variant="secondary" onClick={copy} className="shrink-0" aria-label={`Copy ${label.toLowerCase()}`}>
           {status === "copied" ? (
-            <Check className="h-4 w-4 text-success" aria-hidden="true" />
+            <Check className="h-4 w-4 text-okText" aria-hidden="true" />
           ) : (
             <Copy className="h-4 w-4" aria-hidden="true" />
           )}

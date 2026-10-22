@@ -308,7 +308,7 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                     {CATEGORIES.map((option) => (
                       <label
                         key={option.value}
-                        className="flex cursor-pointer items-center justify-center rounded-md border border-border-strong bg-surface px-3 py-2 text-center text-sm text-ink transition-colors hover:bg-subtle has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:checked]:text-accent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                        className="flex cursor-pointer items-center justify-center rounded-md border border-border-strong bg-surface px-3 py-2 text-center text-sm text-ink transition-colors hover:bg-subtle has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:checked]:text-accentText has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
                       >
                         <input
                           type="radio"

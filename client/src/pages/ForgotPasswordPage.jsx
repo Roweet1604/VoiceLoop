@@ -31,7 +31,7 @@ export default function ForgotPasswordPage() {
   });
 
   const backToLogin = (
-    <Link to="/login" className="font-medium text-accent hover:underline">
+    <Link to="/login" className="font-medium text-accentText hover:underline">
       Back to log in
     </Link>
   );

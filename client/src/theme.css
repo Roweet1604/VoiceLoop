@@ -1,0 +1,65 @@
+/*
+ * VoiceLoop colour tokens, copied from docs/ui/theme.css (the design source).
+ * Light is the default. Dark applies from the OS setting unless the user
+ * chose light (<html data-theme="light">), and always with data-theme="dark".
+ * index.css maps these into Tailwind colours; components never use raw hex.
+ */
+:root {
+  --bg: #f4f7fb; --panel: #ffffff; --panel-2: #eef3f9; --border: #dde5f0;
+  --text: #0b1224; --muted: #55627f; --faint: #8591ad;
+  --accent: #0d9488; --accent-soft: #d9f4f0; --on-accent: #ffffff;
+  --danger: #dc2626; --warn: #b45309; --ok: #0d9488;
+  --shadow: 0 8px 24px rgba(11,18,36,0.07);
+  --font-ui: "Sora", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1224; --panel: #122041; --panel-2: #0f1a36; --border: #1d2742;
+    --text: #e8ecf5; --muted: #8d9ab8; --faint: #6b7896;
+    --accent: #e8c46a; --accent-soft: #3a3220; --on-accent: #0b1224;
+    --danger: #f87171; --warn: #fbbf24; --ok: #2dd4bf; --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1224; --panel: #122041; --panel-2: #0f1a36; --border: #1d2742;
+  --text: #e8ecf5; --muted: #8d9ab8; --faint: #6b7896;
+  --accent: #e8c46a; --accent-soft: #3a3220; --on-accent: #0b1224;
+  --danger: #f87171; --warn: #fbbf24; --ok: #2dd4bf; --shadow: none;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+
+/*
+ * Extra tokens derived for contrast; not in the design source.
+ * Teal #0d9488 is 3.7:1 on white: fine for fills, borders and icons, too low
+ * for small text. Accent- and ok-coloured text uses a darker teal in light
+ * mode (5.5:1). In dark mode the base tokens already pass, so they're reused.
+ */
+:root {
+  --accent-text: #0f766e;
+  --ok-text: #0f766e;
+  --danger-soft: #fef4f4;
+  --warn-soft: #fffbeb;
+  --ok-soft: var(--accent-soft);
+  --scrim: rgb(11 18 36 / 0.5);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --accent-text: var(--accent);
+    --ok-text: var(--ok);
+    --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--panel));
+    --warn-soft: color-mix(in srgb, var(--warn) 12%, var(--panel));
+    --ok-soft: color-mix(in srgb, var(--ok) 12%, var(--panel));
+    --scrim: rgb(3 6 14 / 0.7);
+  }
+}
+:root[data-theme="dark"] {
+  --accent-text: var(--accent);
+  --ok-text: var(--ok);
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  --warn-soft: color-mix(in srgb, var(--warn) 12%, var(--panel));
+  --ok-soft: color-mix(in srgb, var(--ok) 12%, var(--panel));
+  --scrim: rgb(3 6 14 / 0.7);
+}

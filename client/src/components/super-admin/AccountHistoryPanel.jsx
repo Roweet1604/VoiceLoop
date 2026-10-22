@@ -40,7 +40,7 @@ export default function AccountHistoryPanel({ account, onClose }) {
         e.preventDefault();
         onClose();
       }}
-      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-lg border-l border-border bg-surface p-0 text-ink shadow-sm backdrop:bg-ink/40"
+      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-lg border-l border-border bg-surface p-0 text-ink shadow-sm backdrop:bg-scrim"
     >
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
@@ -130,7 +130,7 @@ export default function AccountHistoryPanel({ account, onClose }) {
         </div>
 
         <div className="border-t border-border bg-canvas px-5 py-3 text-sm">
-          <Link to={`/super-admin/audit-logs?target=${account.id}`} className="font-medium text-accent hover:underline">
+          <Link to={`/super-admin/audit-logs?target=${account.id}`} className="font-medium text-accentText hover:underline">
             View in the audit log
           </Link>
         </div>

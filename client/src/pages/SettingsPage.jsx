@@ -53,69 +53,86 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-lg font-semibold text-ink">Settings</h1>
-      <p className="mt-1 text-sm text-ink-muted">What customers see on your feedback page.</p>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-lg font-semibold text-text">Settings</h1>
+        <p className="mt-1 text-sm text-muted">What customers see on your feedback page.</p>
+      </header>
 
-      <Card className="mt-6">
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
-          {formError && <Alert>{formError}</Alert>}
-          {saved && <Alert tone="success">Settings saved.</Alert>}
+      {/* Two columns from 1100px: business details on the left, the customer
+          page wording (with its preview) on the right. Each card keeps its
+          own Save, exactly as before. */}
+      <div className="grid items-start gap-6 min-[1100px]:grid-cols-2">
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-text">Business</h2>
+            <p className="mt-1 text-sm text-muted">Your name, location and welcome message on the feedback page.</p>
+            <form onSubmit={onSubmit} noValidate className="mt-5 space-y-4">
+              {formError && <Alert>{formError}</Alert>}
+              {saved && <Alert tone="success">Settings saved.</Alert>}
 
-          <TextField label="Business name" maxLength={BUSINESS_LIMITS.name} {...field("name")} />
-          <TextField
-            label="Location (optional)"
-            hint="e.g. a branch or neighbourhood."
-            maxLength={BUSINESS_LIMITS.locationName}
-            {...field("locationName")}
-          />
-          <TextField
-            label="Welcome message (optional)"
-            multiline
-            rows={3}
-            maxLength={BUSINESS_LIMITS.welcomeMessage}
-            hint={`Shown above the feedback form. ${values.welcomeMessage.trim().length}/${BUSINESS_LIMITS.welcomeMessage}`}
-            {...field("welcomeMessage")}
-          />
-          <TextField
-            label="Google review link (optional)"
-            type="url"
-            inputMode="url"
-            placeholder="https://g.page/r/…/review"
-            hint="Offered to every customer as a separate option, whatever their feedback. Must start with https://"
-            {...field("googleReviewUrl")}
-          />
+              <TextField label="Business name" maxLength={BUSINESS_LIMITS.name} {...field("name")} />
+              <TextField
+                label="Location (optional)"
+                hint="e.g. a branch or neighbourhood."
+                maxLength={BUSINESS_LIMITS.locationName}
+                {...field("locationName")}
+              />
+              <TextField
+                label="Welcome message (optional)"
+                multiline
+                rows={3}
+                maxLength={BUSINESS_LIMITS.welcomeMessage}
+                hint={`Shown above the feedback form. ${values.welcomeMessage.trim().length}/${BUSINESS_LIMITS.welcomeMessage}`}
+                {...field("welcomeMessage")}
+              />
+              {/* Saved with the fields above (one form, one Save), so it is a
+                  section of this card rather than a card of its own. */}
+              <div className="border-t border-border pt-4">
+                <h3 className="mb-3 text-sm font-semibold text-text">Google review link</h3>
+                <TextField
+                  label="Google review link (optional)"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://g.page/r/…/review"
+                  hint="Offered to every customer as a separate option, whatever their feedback. Must start with https://"
+                  {...field("googleReviewUrl")}
+                />
+              </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-            {dirty && !submitting && <span className="text-xs text-ink-muted">Unsaved changes</span>}
-            <Button
-              variant="secondary"
-              disabled={!dirty || submitting}
-              onClick={() => {
-                reset(toValues(business));
-                setSaved(false);
-              }}
-            >
-              Discard
-            </Button>
-            <Button type="submit" loading={submitting} disabled={!dirty}>
-              {submitting ? "Saving…" : "Save changes"}
-            </Button>
-          </div>
-        </form>
-      </Card>
+              <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+                {dirty && !submitting && <span className="text-xs text-muted">Unsaved changes</span>}
+                <Button
+                  variant="secondary"
+                  disabled={!dirty || submitting}
+                  onClick={() => {
+                    reset(toValues(business));
+                    setSaved(false);
+                  }}
+                >
+                  Discard
+                </Button>
+                <Button type="submit" loading={submitting} disabled={!dirty}>
+                  {submitting ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </form>
+          </Card>
 
-      <WordingSettings />
-
-      <Card className="mt-4">
-        <h2 className="text-sm font-semibold text-ink">Public feedback link</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Created when you set up your business. It doesn't change when you rename it, so printed links keep working.
-        </p>
-        <div className="mt-4">
-          <PublicLink url={publicFeedbackUrl(business.publicSlug)} />
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-text">Public feedback link</h2>
+            <p className="mt-1 text-sm text-muted">
+              Created when you set up your business. It doesn't change when you rename it, so printed links keep
+              working.
+            </p>
+            <div className="mt-4">
+              <PublicLink url={publicFeedbackUrl(business.publicSlug)} />
+            </div>
+          </Card>
         </div>
-      </Card>
+
+        <WordingSettings />
+      </div>
     </div>
   );
 }

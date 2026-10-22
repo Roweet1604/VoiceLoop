@@ -41,3 +41,9 @@ export function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// Today's times show the time, older ones the date: for compact lists.
+export function formatShortWhen(value) {
+  const date = new Date(value);
+  return date.toDateString() === new Date().toDateString() ? formatTime(date) : formatDate(date);
+}

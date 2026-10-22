@@ -1,15 +1,18 @@
 import { LoaderCircle } from "lucide-react";
 
+// Primary: accent fill. Secondary: transparent with a 1px border. Danger: the
+// secondary shape with danger text, so a destructive button never shouts.
+const SECONDARY = "border border-faint/45 bg-transparent text-text hover:bg-panel2";
 const VARIANTS = {
-  primary: "bg-accent text-accent-ink hover:bg-accent-hover border border-transparent",
-  secondary: "bg-surface text-ink hover:bg-subtle border border-border-strong",
-  danger: "bg-danger text-white hover:bg-danger/90 border border-transparent",
-  // Destructive action that sits next to ordinary ones without shouting.
-  dangerOutline: "bg-surface text-danger hover:bg-danger-soft border border-danger/40",
+  primary: "border border-transparent bg-accent text-onAccent hover:bg-accent-hover",
+  secondary: SECONDARY,
+  danger: "border border-danger/40 bg-transparent text-danger hover:bg-dangerSoft",
 };
+// Earlier name for the same style.
+VARIANTS.dangerOutline = VARIANTS.danger;
 
 const SIZES = {
-  md: "px-4 py-2 text-sm",
+  md: "px-4 py-2 text-[13px]",
   sm: "px-2.5 py-1 text-xs",
 };
 
@@ -30,7 +33,7 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-md font-medium shadow-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${SIZES[size]} ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 ${SIZES[size]} ${VARIANTS[variant]} ${className}`}
       {...props}
     >
       {loading && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}

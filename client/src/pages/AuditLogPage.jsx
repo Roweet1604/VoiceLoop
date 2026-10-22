@@ -133,7 +133,7 @@ export default function AuditLogPage() {
               setSearchInput("");
               setParams(new URLSearchParams(), { replace: true });
             }}
-            className="self-center text-sm font-medium text-accent hover:underline"
+            className="self-center text-sm font-medium text-accentText hover:underline"
           >
             Clear all filters
           </button>
@@ -217,7 +217,7 @@ export default function AuditLogPage() {
                       <button
                         type="button"
                         onClick={() => update({ target: String(entry.target.id) })}
-                        className="text-xs font-medium text-accent hover:underline"
+                        className="text-xs font-medium text-accentText hover:underline"
                       >
                         Only this account
                       </button>

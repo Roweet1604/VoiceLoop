@@ -13,7 +13,7 @@ export default function TermsPage() {
         <p>
           VoiceLoop is operated by <Placeholder>COMPANY NAME</Placeholder> ("we"). These terms apply to businesses that
           use VoiceLoop to collect feedback, and to customers who leave feedback on a VoiceLoop feedback page. By using
-          VoiceLoop you agree to them. Our <Link to="/privacy" className="font-medium text-accent hover:underline">Privacy Policy</Link>{" "}
+          VoiceLoop you agree to them. Our <Link to="/privacy" className="font-medium text-accentText hover:underline">Privacy Policy</Link>{" "}
           explains how data is handled.
         </p>
       </Section>
@@ -80,7 +80,7 @@ export default function TermsPage() {
         <p>
           A business's feedback, links and settings belong to that business. We store and process them only to run
           VoiceLoop for that business. When an account is deleted, its data is deleted as described in the{" "}
-          <Link to="/privacy" className="font-medium text-accent hover:underline">Privacy Policy</Link>.
+          <Link to="/privacy" className="font-medium text-accentText hover:underline">Privacy Policy</Link>.
         </p>
         <p>
           Feedback and its recordings, notes and status history are deleted automatically 45 days after they were sent,

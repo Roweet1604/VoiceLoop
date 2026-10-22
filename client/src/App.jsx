@@ -8,7 +8,7 @@ import {
   RequireSuperAdmin,
 } from "./components/RouteGuards.jsx";
 import { BusinessGate } from "./context/BusinessContext.jsx";
-import AppShell from "./components/AppShell.jsx";
+import OwnerLayout from "./components/OwnerLayout.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
@@ -67,7 +67,7 @@ export default function App() {
         <Route path="/app" element={<RequireActiveAccess />}>
           <Route element={<BusinessGate />}>
             <Route path="setup" element={<SetupPage />} />
-            <Route element={<AppShell />}>
+            <Route element={<OwnerLayout />}>
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="feedback" element={<FeedbackInboxPage />} />
               <Route path="feedback/:feedbackId" element={<FeedbackDetailPage />} />

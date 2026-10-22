@@ -47,7 +47,7 @@ export default function ResetPasswordPage() {
   });
 
   const requestNew = (
-    <Link to="/forgot-password" className="font-medium text-accent hover:underline">
+    <Link to="/forgot-password" className="font-medium text-accentText hover:underline">
       Request a new link
     </Link>
   );
@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
       <AuthLayout
         title={linkProblem === "invalid" ? "This link has expired" : "This link is incomplete"}
         footer={
-          <Link to="/login" className="font-medium text-accent hover:underline">
+          <Link to="/login" className="font-medium text-accentText hover:underline">
             Back to log in
           </Link>
         }

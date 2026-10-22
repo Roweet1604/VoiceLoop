@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { LoaderCircle, Mic, FileText } from "lucide-react";
-import Card from "../ui/Card.jsx";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LoaderCircle, Mic, FileText, Play, Pause } from "lucide-react";
 import Button from "../ui/Button.jsx";
 import Alert from "../ui/Alert.jsx";
+import Waveform from "../ui/Waveform.jsx";
 import { apiBlob } from "../../lib/api.js";
 import { formatBytes, formatDuration } from "../../lib/format.js";
 
@@ -39,42 +39,113 @@ export default function VoiceMessage({ feedbackId, audio, transcriptStatus, tran
   useEffect(() => load(), [load, attempt]);
 
   return (
-    <Card>
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <Mic className="h-4 w-4 text-accent" aria-hidden="true" />
-        Voice message
-      </h2>
-      <p className="mt-0.5 text-xs text-ink-muted">
-        {audio.durationSec != null && <>About {formatDuration(audio.durationSec)} · </>}
-        {formatBytes(audio.sizeBytes)}
-      </p>
+    <div className="space-y-6">
+      <div className="rounded-card border border-border bg-panel2 p-5">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text">
+          <Mic className="h-4 w-4 text-accentText" aria-hidden="true" />
+          Voice message
+        </h2>
+        <p className="mt-0.5 text-xs text-muted">
+          {audio.durationSec != null && <>About {formatDuration(audio.durationSec)} · </>}
+          {formatBytes(audio.sizeBytes)}
+        </p>
 
-      <div className="mt-3">
-        {state.status === "loading" && (
-          <p className="flex items-center gap-2 py-2 text-sm text-ink-muted" role="status">
-            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Loading recording…
-          </p>
-        )}
-        {state.status === "ready" && (
-          <audio controls src={state.url} className="w-full" preload="metadata">
-            Your browser can't play this recording.
-          </audio>
-        )}
-        {state.status === "error" && (
-          <Alert>
-            <p>{state.error.status === 404 ? "The recording couldn't be found." : state.error.message}</p>
-            {state.error.status !== 404 && (
-              <Button size="sm" variant="secondary" className="mt-2" onClick={() => setAttempt((n) => n + 1)}>
-                Try again
-              </Button>
-            )}
-          </Alert>
-        )}
+        <div className="mt-3">
+          {state.status === "loading" && (
+            <p className="flex items-center gap-2 py-2 text-sm text-muted" role="status">
+              <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Loading recording…
+            </p>
+          )}
+          {state.status === "ready" && <Player url={state.url} seed={feedbackId} durationSec={audio.durationSec} />}
+          {state.status === "error" && (
+            <Alert>
+              <p>{state.error.status === 404 ? "The recording couldn't be found." : state.error.message}</p>
+              {state.error.status !== 404 && (
+                <Button size="sm" variant="secondary" className="mt-2" onClick={() => setAttempt((n) => n + 1)}>
+                  Try again
+                </Button>
+              )}
+            </Alert>
+          )}
+        </div>
       </div>
 
       <Transcript status={transcriptStatus} text={transcriptText} />
-    </Card>
+    </div>
+  );
+}
+
+// Round play/pause button, the accent waveform as a progress bar, and the
+// time. A hidden native <audio> does the playing. An invisible range input
+// over the waveform makes it a real slider: click to seek, or focus it and
+// use the arrow keys.
+function Player({ url, seed, durationSec }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(durationSec ?? 0);
+  const [unplayable, setUnplayable] = useState(false);
+
+  if (unplayable) return <p className="text-sm text-muted">Your browser can't play this recording.</p>;
+
+  function togglePlay() {
+    const el = audioRef.current;
+    if (el.paused) {
+      // Only an unsupported format means the recording can't play here; an
+      // interrupted or blocked start (AbortError, NotAllowedError) just
+      // leaves it paused, so the button can be pressed again.
+      el.play().catch((err) => err?.name === "NotSupportedError" && setUnplayable(true));
+    } else el.pause();
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        className="hidden"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        // Recorded webm often reports Infinity until fully read; keep the
+        // stored duration until the browser knows better.
+        onLoadedMetadata={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
+        onDurationChange={(e) => Number.isFinite(e.currentTarget.duration) && setDuration(e.currentTarget.duration)}
+        onError={() => setUnplayable(true)}
+      />
+      <button
+        type="button"
+        onClick={togglePlay}
+        aria-label={playing ? "Pause recording" : "Play recording"}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-onAccent transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        {playing ? <Pause className="h-5 w-5" aria-hidden="true" /> : <Play className="ml-0.5 h-5 w-5" aria-hidden="true" />}
+      </button>
+      <div className="relative min-w-0 flex-1 overflow-hidden rounded-md has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent">
+        <Waveform seed={seed} bars={32} tone="accent" progress={duration ? time / duration : 0} className="w-full justify-between" />
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={Math.min(time, duration || 0)}
+          disabled={!duration}
+          onChange={(e) => {
+            audioRef.current.currentTime = Number(e.target.value);
+            setTime(Number(e.target.value));
+          }}
+          aria-label="Position in recording"
+          aria-valuetext={`${formatDuration(time)} of ${formatDuration(duration)}`}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+        />
+      </div>
+      <span className="shrink-0 text-xs text-muted tabular-nums">
+        {formatDuration(time)} / {formatDuration(duration)}
+      </span>
+    </div>
   );
 }
 
@@ -86,20 +157,23 @@ function Transcript({ status, text }) {
     processing: "Transcription in progress.",
     failed: "Transcription failed. Listen to the recording above.",
   };
+  const completed = status === "completed" && text;
 
   return (
-    <div className="mt-4 border-t border-border pt-3">
-      <h3 className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+    <div
+      className={`rounded-card px-5 py-4 ${completed ? "border border-border bg-panel2" : "border border-dashed border-faint/60"}`}
+    >
+      <h3 className="flex items-center gap-1.5 text-xs font-semibold text-muted">
         <FileText className="h-3.5 w-3.5" aria-hidden="true" />
         Transcript
       </h3>
-      {status === "completed" && text ? (
+      {completed ? (
         <>
-          <p className="mt-1.5 text-sm whitespace-pre-wrap break-words text-ink">{text}</p>
-          <p className="mt-1 text-xs text-ink-muted">Generated automatically; it may contain mistakes.</p>
+          <p className="mt-1.5 text-sm whitespace-pre-wrap break-words text-text">{text}</p>
+          <p className="mt-1 text-xs text-muted">Generated automatically; it may contain mistakes.</p>
         </>
       ) : (
-        <p className="mt-1.5 text-sm text-ink-muted">{messages[status] ?? messages.unavailable}</p>
+        <p className="mt-1.5 text-sm text-muted">{messages[status] ?? messages.unavailable}</p>
       )}
     </div>
   );

@@ -25,23 +25,23 @@ export default function BarTable({ caption, labelHeading, rows }) {
           <tr key={row.key}>
             <td className="w-2/5 py-1.5 pr-3 align-middle">
               {row.to ? (
-                <Link to={row.to} className="break-words text-ink hover:underline">
+                <Link to={row.to} className="break-words text-text hover:underline">
                   {row.label}
                 </Link>
               ) : (
-                <span className="break-words text-ink">{row.label}</span>
+                <span className="break-words text-text">{row.label}</span>
               )}
-              {row.note && <span className="ml-1 text-xs text-ink-muted">{row.note}</span>}
+              {row.note && <span className="ml-1 text-xs text-muted">{row.note}</span>}
             </td>
             <td className="py-1.5 pr-3 align-middle">
-              <div className="h-2 rounded-sm bg-subtle" aria-hidden="true">
+              <div className="h-2 rounded-sm bg-panel2" aria-hidden="true">
                 {row.count > 0 && (
                   <div className="h-full rounded-sm bg-accent" style={{ width: `${(row.count / max) * 100}%` }} />
                 )}
               </div>
               <span className="sr-only">{total ? percentFormat.format(row.count / total) : "0%"}</span>
             </td>
-            <td className={`w-16 py-1.5 text-right align-middle tabular-nums ${row.count ? "text-ink" : "text-ink-muted"}`}>
+            <td className={`w-16 py-1.5 text-right align-middle tabular-nums ${row.count ? "text-text" : "text-muted"}`}>
               {numberFormat.format(row.count)}
             </td>
           </tr>

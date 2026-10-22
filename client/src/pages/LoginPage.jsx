@@ -38,7 +38,7 @@ export default function LoginPage() {
       footer={
         <>
           New to VoiceLoop?{" "}
-          <Link to="/signup" className="font-medium text-accent hover:underline">
+          <Link to="/signup" className="font-medium text-accentText hover:underline">
             Request access
           </Link>
         </>
@@ -59,7 +59,7 @@ export default function LoginPage() {
         <div>
           <PasswordField label="Password" autoComplete="current-password" {...bind("password")} />
           <div className="mt-1.5 text-right">
-            <Link to="/forgot-password" className="text-sm font-medium text-accent hover:underline">
+            <Link to="/forgot-password" className="text-sm font-medium text-accentText hover:underline">
               Forgot password?
             </Link>
           </div>

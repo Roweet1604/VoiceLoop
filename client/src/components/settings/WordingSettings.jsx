@@ -59,14 +59,14 @@ export default function WordingSettings() {
   };
 
   return (
-    <Card className="mt-4">
-      <h2 className="text-sm font-semibold text-ink">Customer page wording</h2>
-      <p className="mt-1 text-sm text-ink-muted">
+    <Card className="@container p-5">
+      <h2 className="text-sm font-semibold text-text">Customer page wording</h2>
+      <p className="mt-1 text-sm text-muted">
         When a Google review link is set, customers first choose between two cards. You can change the text on each
         card; titles and buttons are fixed. Leave a field empty to use the default shown in grey.
       </p>
 
-      <div className="mt-4 flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
+      <div className="mt-4 flex items-start gap-2 rounded-control bg-panel2 px-3 py-2.5 text-xs text-muted">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <p>
           The review card text should not be addressed only to happy customers, and must not offer rewards for a
@@ -78,7 +78,7 @@ export default function WordingSettings() {
         {formError && <Alert>{formError}</Alert>}
         {saved && <Alert tone="success">Wording saved.</Alert>}
 
-        <fieldset className="grid gap-4 md:grid-cols-2" disabled={submitting}>
+        <fieldset className="grid gap-4 @xl:grid-cols-2" disabled={submitting}>
           <legend className="sr-only">Card text</legend>
           {FIELDS.map(([name, label]) => (
             <TextField
@@ -95,19 +95,21 @@ export default function WordingSettings() {
         </fieldset>
 
         <figure>
-          <figcaption className="text-xs font-medium text-ink-muted">Preview</figcaption>
-          <div className="mt-2 rounded-lg border border-border bg-canvas p-4">
+          <figcaption className="text-xs font-semibold text-muted">Preview</figcaption>
+          {/* Framed at phone width, which is how most customers see it. */}
+          <div className="mx-auto mt-2 w-full max-w-[380px] rounded-[28px] border-[6px] border-border bg-bg p-4 shadow-card">
+            <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-border" aria-hidden="true" />
             <LandingCards wording={resolveWording(values)} preview />
           </div>
           {!isHttpsUrl(business.googleReviewUrl) && (
-            <p className="mt-2 text-xs text-ink-muted">
+            <p className="mt-3 text-center text-xs text-muted">
               No Google review link is saved yet, so customers currently go straight to the feedback form.
             </p>
           )}
         </figure>
 
         <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
-          {dirty && !submitting && <span className="text-xs text-ink-muted">Unsaved changes</span>}
+          {dirty && !submitting && <span className="text-xs text-muted">Unsaved changes</span>}
           <Button
             variant="secondary"
             disabled={allDefault || submitting}
