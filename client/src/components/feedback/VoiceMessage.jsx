@@ -79,15 +79,16 @@ export default function VoiceMessage({ feedbackId, audio, transcriptStatus, tran
 // Round play/pause button, the accent waveform as a progress bar, and the
 // time. A hidden native <audio> does the playing. An invisible range input
 // over the waveform makes it a real slider: click to seek, or focus it and
-// use the arrow keys.
-function Player({ url, seed, durationSec }) {
+// use the arrow keys. Also used for the customer's own preview on the
+// public form, with its own `unplayableText`.
+export function Player({ url, seed, durationSec, unplayableText = "Your browser can't play this recording." }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(durationSec ?? 0);
   const [unplayable, setUnplayable] = useState(false);
 
-  if (unplayable) return <p className="text-sm text-muted">Your browser can't play this recording.</p>;
+  if (unplayable) return <p className="text-sm text-muted">{unplayableText}</p>;
 
   function togglePlay() {
     const el = audioRef.current;

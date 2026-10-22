@@ -1,12 +1,15 @@
-const STYLES = {
-  pending: { label: "Pending", classes: "bg-warning-soft text-warning" },
-  active: { label: "Active", classes: "bg-success-soft text-success" },
-  suspended: { label: "Suspended", classes: "bg-danger-soft text-danger" },
-  expired: { label: "Expired", classes: "bg-subtle text-ink-muted" },
-  rejected: { label: "Rejected", classes: "bg-danger-soft text-danger" },
+import StatusPill from "../ui/StatusPill.jsx";
+import { ACCESS_STATUS_LABELS } from "../../lib/auditLabels.js";
+
+const TONES = {
+  pending: "warn",
+  active: "ok",
+  suspended: "danger",
+  expired: "neutral",
+  rejected: "danger",
 };
 
+// An account's access status as a small pill.
 export default function StatusBadge({ status }) {
-  const { label, classes } = STYLES[status] ?? { label: status, classes: "bg-subtle text-ink-muted" };
-  return <span className={`inline-flex rounded-sm px-2 py-0.5 text-xs font-medium ${classes}`}>{label}</span>;
+  return <StatusPill tone={TONES[status] ?? "neutral"}>{ACCESS_STATUS_LABELS[status] ?? status}</StatusPill>;
 }

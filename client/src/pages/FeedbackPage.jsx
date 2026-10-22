@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { MapPin, LockKeyhole, ExternalLink, CircleCheck, LoaderCircle, ArrowLeft, PenLine, Mic } from "lucide-react";
+import {
+  MapPin,
+  LockKeyhole,
+  ExternalLink,
+  CircleCheck,
+  LoaderCircle,
+  ArrowLeft,
+  PenLine,
+  Mic,
+  CircleAlert,
+  LinkIcon,
+} from "lucide-react";
 import LandingCards from "../components/LandingCards.jsx";
 import { resolveWording, isHttpsUrl } from "../lib/landingWording.js";
-import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
 import TextField from "../components/ui/TextField.jsx";
@@ -73,7 +83,7 @@ export default function FeedbackPage() {
   if (page.status === "loading") {
     return (
       <PublicFrame>
-        <div className="flex items-center justify-center gap-2 py-16 text-sm text-ink-muted" role="status">
+        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted" role="status">
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
           Loading…
         </div>
@@ -86,13 +96,12 @@ export default function FeedbackPage() {
   if (page.status === "error") {
     return (
       <PublicFrame>
-        <Card>
-          <h1 className="text-lg font-semibold text-ink">Couldn't load this page</h1>
-          <Alert className="mt-4">{page.error.message}</Alert>
-          <Button className="mt-4 w-full" onClick={load}>
+        <StateCard Icon={CircleAlert} title="Couldn't load this page">
+          <Alert className="mt-4 text-left">{page.error.message}</Alert>
+          <Button className="mt-4 h-12 w-full" onClick={load}>
             Try again
           </Button>
-        </Card>
+        </StateCard>
       </PublicFrame>
     );
   }
@@ -254,18 +263,27 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
 
   return (
     <PublicFrame>
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-ink break-words">{business.name}</h1>
-        {business.locationName && (
-          <p className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
-            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="break-words">{business.locationName}</span>
-          </p>
-        )}
-        {business.welcomeMessage && (
-          <p className="mt-3 text-sm whitespace-pre-line break-words text-ink">{business.welcomeMessage}</p>
-        )}
+      <header className="flex items-center gap-3">
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-control bg-accent text-lg font-bold text-onAccent"
+          aria-hidden="true"
+        >
+          {business.name.trim().charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-xl leading-tight font-semibold break-words text-text">{business.name}</h1>
+          {business.locationName && (
+            <p className="mt-0.5 flex items-center gap-1 text-sm text-muted">
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="break-words">{business.locationName}</span>
+            </p>
+          )}
+        </div>
       </header>
+
+      {business.welcomeMessage && (
+        <p className="text-[15px] leading-relaxed whitespace-pre-line break-words text-text">{business.welcomeMessage}</p>
+      )}
 
       {view === "landing" ? (
         <section ref={landingRef} tabIndex={-1} aria-labelledby="landing-heading" className="outline-none">
@@ -280,7 +298,7 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
             <button
               type="button"
               onClick={() => showView("landing")}
-              className="mb-3 inline-flex items-center gap-1 rounded-sm text-sm font-medium text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="-mb-2 inline-flex items-center gap-1 self-start rounded-sm text-sm font-semibold text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Back
@@ -288,27 +306,29 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
           )}
 
           {sent ? (
-            <Card>
+            <div className="rounded-[20px] border border-border bg-panel px-6 py-10 text-center shadow-card">
               <div ref={successRef} tabIndex={-1} role="status" className="outline-none">
-                <CircleCheck className="h-6 w-6 text-success" aria-hidden="true" />
-                <h2 className="mt-3 text-base font-semibold text-ink">Thank you!</h2>
-                <p className="mt-1 text-sm text-ink-muted">We appreciate you taking the time to share this.</p>
+                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accentSoft">
+                  <CircleCheck className="h-8 w-8 text-accentText" aria-hidden="true" />
+                </span>
+                <h2 className="mt-5 text-xl font-semibold text-text">Thank you!</h2>
+                <p className="mt-2 text-[15px] text-muted">We appreciate you taking the time to share this.</p>
               </div>
-            </Card>
+            </div>
           ) : (
-            <Card>
-              <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
-                <h2 ref={formHeadingRef} tabIndex={-1} className="text-base font-semibold break-words text-ink outline-none">
+            <div className="rounded-[20px] border border-border bg-panel p-5 shadow-card sm:p-6">
+              <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-6">
+                <h2 ref={formHeadingRef} tabIndex={-1} className="text-lg font-semibold break-words text-text outline-none">
                   {wording.feedbackCardTitle}
                 </h2>
 
                 <fieldset disabled={submitting}>
-                  <legend className="text-sm font-medium text-ink">What is it about?</legend>
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <legend className="text-sm font-semibold text-text">What is it about?</legend>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
                     {CATEGORIES.map((option) => (
                       <label
                         key={option.value}
-                        className="flex cursor-pointer items-center justify-center rounded-md border border-border-strong bg-surface px-3 py-2 text-center text-sm text-ink transition-colors hover:bg-subtle has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-medium has-[:checked]:text-accentText has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                        className="flex min-h-11 cursor-pointer items-center justify-center rounded-control border border-border bg-panel2 px-3 py-2 text-center text-sm text-text transition-colors hover:border-faint has-[:checked]:border-accent has-[:checked]:bg-accentSoft has-[:checked]:font-semibold has-[:checked]:text-accentText has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
                       >
                         <input
                           type="radio"
@@ -322,16 +342,21 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                       </label>
                     ))}
                   </div>
-                  {bind("category").error && <p className="mt-1.5 text-xs text-danger">{bind("category").error}</p>}
+                  {bind("category").error && (
+                    <p className="mt-1.5 flex items-start gap-1.5 text-xs text-danger">
+                      <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span>{bind("category").error}</span>
+                    </p>
+                  )}
                 </fieldset>
 
                 <fieldset disabled={submitting}>
-                  <legend className="text-sm font-medium text-ink">How would you like to share it?</legend>
-                  <div className="mt-2 grid grid-cols-2 gap-1 rounded-md border border-border bg-subtle p-1">
+                  <legend className="text-sm font-semibold text-text">How would you like to share it?</legend>
+                  <div className="mt-3 grid grid-cols-2 gap-1 rounded-full border border-border bg-panel2 p-1">
                     {MODES.map(({ value, label, Icon }) => (
                       <label
                         key={value}
-                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-sm text-ink-muted transition-colors hover:text-ink has-[:checked]:bg-surface has-[:checked]:font-medium has-[:checked]:text-ink has-[:checked]:shadow-xs has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                        className="flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-muted transition-colors hover:text-text has-[:checked]:bg-accent has-[:checked]:text-onAccent has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
                       >
                         <input
                           type="radio"
@@ -356,6 +381,7 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                     maxLength={FEEDBACK_MESSAGE_MAX}
                     placeholder="Tell us what happened or what we could do better"
                     hint={`${messageLength} / ${FEEDBACK_MESSAGE_MAX} characters`}
+                    inputClassName="min-h-[140px] rounded-[14px] px-4 py-3 text-[15px]"
                     {...bind("message")}
                   />
                 ) : (
@@ -367,7 +393,7 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                   />
                 )}
 
-                <p className="flex items-start gap-2 rounded-md bg-subtle px-3 py-2.5 text-xs text-ink-muted">
+                <p className="flex items-start gap-2 rounded-control bg-panel2 px-3 py-2.5 text-xs text-muted">
                   <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {mode === "voice" ? (
                     <span>
@@ -407,7 +433,7 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
                       <button
                         type="button"
                         onClick={() => formRef.current?.requestSubmit()}
-                        className="mt-1 font-medium underline underline-offset-2"
+                        className="mt-1 rounded-sm font-semibold underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
                       >
                         Try again
                       </button>
@@ -417,23 +443,23 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
 
                 {uploadProgress !== null && <UploadProgress value={uploadProgress} />}
 
-                <Button type="submit" loading={submitting} className="w-full">
+                <Button type="submit" loading={submitting} className="h-12 w-full text-[15px]">
                   {submitting ? "Sending…" : mode === "voice" ? "Send recording" : "Send feedback"}
                 </Button>
               </form>
-            </Card>
+            </div>
           )}
 
           {/* The review option stays available below the form, whatever the
               customer chose or wrote. The thank-you screen shows only thanks. */}
           {reviewUrl && !sent && (
-            <div className="mt-4 rounded-lg border border-border bg-surface px-4 py-4 text-center">
-              <p className="text-sm break-words text-ink-muted">{wording.reviewCardTitle}</p>
+            <div className="rounded-[20px] border border-border bg-panel px-5 py-5 text-center">
+              <p className="text-sm break-words text-muted">{wording.reviewCardTitle}</p>
               <a
                 href={reviewUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-surface px-4 py-2 text-sm font-medium text-ink shadow-xs transition-colors hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="mt-3 inline-flex h-11 items-center justify-center gap-2 rounded-control border border-faint/45 px-5 text-sm font-semibold text-text transition-colors hover:bg-panel2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 {wording.reviewCardButton}
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -451,24 +477,40 @@ function FeedbackForm({ business, slug, code, onUnavailable }) {
 function Unavailable() {
   return (
     <PublicFrame>
-      <Card>
-        <h1 className="text-lg font-semibold text-ink">This feedback page isn't available</h1>
-        <p className="mt-2 text-sm text-ink-muted">
+      <StateCard Icon={LinkIcon} title="This feedback page isn't available">
+        <p className="mt-2 text-[15px] text-muted">
           The link may be incorrect, or this business isn't collecting feedback here right now.
         </p>
-      </Card>
+      </StateCard>
     </PublicFrame>
   );
 }
 
+// Centred card with an icon, for the error and unavailable screens.
+function StateCard({ Icon, title, children }) {
+  return (
+    <div className="rounded-[20px] border border-border bg-panel px-6 py-10 text-center shadow-card">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-panel2 text-muted">
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <h1 className="mt-5 text-lg font-semibold text-text">{title}</h1>
+      {children}
+    </div>
+  );
+}
+
+// Phone-first column, 440px at most. On tall, wide windows the content sits
+// in the middle; on phones it starts at the top.
 function PublicFrame({ children }) {
   return (
-    <main className="min-h-screen bg-canvas px-4 py-8 sm:py-12">
-      <div className="mx-auto w-full max-w-lg">
+    <main className="flex min-h-dvh flex-col bg-bg px-5 py-8 [@media(min-width:640px)_and_(min-height:760px)]:justify-center">
+      <div className="mx-auto flex w-full max-w-[440px] flex-col gap-6">
         {children}
-        <p className="mt-8 text-center text-xs text-ink-muted">Feedback collected with VoiceLoop</p>
-        {/* New tab, so a half-written message or recording isn't lost. */}
-        <PublicFooter newTab className="mt-2" />
+        <div>
+          <p className="text-center text-xs text-muted">Feedback collected with VoiceLoop</p>
+          {/* New tab, so a half-written message or recording isn't lost. */}
+          <PublicFooter newTab className="mt-2" />
+        </div>
       </div>
     </main>
   );
