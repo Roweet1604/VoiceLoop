@@ -37,15 +37,15 @@ export default function DeleteAccountDialog({ account, onClose, onDeleted }) {
       <form onSubmit={onSubmit}>
         <div className="space-y-4 px-6 pt-3 text-sm">
           <div>
-            <p className="text-ink">This permanently deletes:</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-muted">
+            <p className="text-text">This permanently deletes:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
               <li>
-                The account <strong className="font-medium text-ink">{account.name}</strong> and its access history
+                The account <strong className="font-medium text-text">{account.name}</strong> and its access history
               </li>
               <li>
                 {account.owner ? (
                   <>
-                    The owner's login, <strong className="font-medium text-ink">{account.owner.email}</strong>
+                    The owner's login, <strong className="font-medium text-text">{account.owner.email}</strong>
                   </>
                 ) : (
                   "All user logins in this account"
@@ -53,7 +53,7 @@ export default function DeleteAccountDialog({ account, onClose, onDeleted }) {
               </li>
               {account.businessName && (
                 <li>
-                  The business <strong className="font-medium text-ink">{account.businessName}</strong> and its settings
+                  The business <strong className="font-medium text-text">{account.businessName}</strong> and its settings
                 </li>
               )}
               <li>All feedback links and QR codes; printed codes will show “not available”</li>
@@ -62,13 +62,13 @@ export default function DeleteAccountDialog({ account, onClose, onDeleted }) {
             </ul>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger-soft px-3 py-2.5 text-danger">
+          <div className="flex items-start gap-2 rounded-control border border-danger/30 bg-dangerSoft px-3 py-2.5 text-danger">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <p>This can't be undone.</p>
           </div>
 
           <div>
-            <label htmlFor={inputId} className="block text-ink">
+            <label htmlFor={inputId} className="block text-text">
               Type <strong className="font-semibold break-words">{expected}</strong> to confirm
             </label>
             <input

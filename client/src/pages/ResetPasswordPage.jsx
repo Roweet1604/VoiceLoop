@@ -67,7 +67,7 @@ export default function ResetPasswordPage() {
             ? "This reset link has expired or has already been used. Links work once, for 30 minutes."
             : "This reset link is missing part of its address. Open the link from your email again, or copy all of it into the address bar."}
         </Alert>
-        <p className="mt-4 text-sm text-ink">{requestNew}</p>
+        <p className="mt-4 text-sm text-text">{requestNew}</p>
       </AuthLayout>
     );
   }
@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
           autoFocus
           {...bind("newPassword")}
         />
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" loading={submitting} className="h-12 w-full text-sm">
           {submitting ? "Saving…" : "Set new password"}
         </Button>
       </form>

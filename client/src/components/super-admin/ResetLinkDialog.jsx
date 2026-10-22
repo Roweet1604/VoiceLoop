@@ -34,12 +34,12 @@ export default function ResetLinkDialog({ account, onClose }) {
     return (
       <Dialog title="Password reset link" onClose={onClose}>
         <div className="space-y-4 px-6 pt-3 text-sm">
-          <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger-soft px-3 py-2.5 text-danger">
+          <div className="flex items-start gap-2 rounded-control border border-danger/30 bg-dangerSoft px-3 py-2.5 text-danger">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <p>Copy it now. This link won't be shown again; closing this window discards it.</p>
           </div>
           <PublicLink url={created.link} label="Password reset link" />
-          <p className="text-ink-muted">
+          <p className="text-muted">
             Works once, until {formatDate(created.expiresAt)}, {formatTime(created.expiresAt)}.
             {ownerEmail && <> Send it only to {ownerEmail}.</>}
           </p>
@@ -55,11 +55,11 @@ export default function ResetLinkDialog({ account, onClose }) {
     <Dialog title="Create password reset link" busy={submitting} onClose={onClose}>
       <form onSubmit={onSubmit}>
         <div className="space-y-3 px-6 pt-3 text-sm">
-          <p className="text-ink">
+          <p className="text-text">
             Creates a link for the owner of <strong className="font-medium">{account.businessName ?? account.name}</strong>
             {ownerEmail && <> ({ownerEmail})</>}. No email is sent.
           </p>
-          <ul className="list-disc space-y-1 pl-5 text-ink-muted">
+          <ul className="list-disc space-y-1 pl-5 text-muted">
             <li>Whoever has the link can set this account's password.</li>
             <li>It is valid for 30 minutes and works once. Any earlier unused link stops working.</li>
             <li>Using it logs the owner out everywhere.</li>

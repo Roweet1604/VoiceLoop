@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Search, LoaderCircle, RefreshCw, X, Trash2, History, KeyRound } from "lucide-react";
-import Card from "../components/ui/Card.jsx";
+import { Search, LoaderCircle, RefreshCw, X, Trash2, History, KeyRound, CircleCheck, CircleX, CirclePause, CirclePlay, CalendarPlus } from "lucide-react";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
+import Table from "../components/ui/Table.jsx";
+import Chip, { ChipGroup } from "../components/ui/Chip.jsx";
+import ActionMenu from "../components/ui/ActionMenu.jsx";
 import { inputClasses } from "../components/ui/TextField.jsx";
 import StatusBadge from "../components/super-admin/StatusBadge.jsx";
 import AccountActionDialog, { ACTION_LABELS } from "../components/super-admin/AccountActionDialog.jsx";
@@ -28,6 +30,24 @@ const VIEWS = [
   { id: "rejected", label: "Rejected", params: { status: "rejected" }, count: "rejected", empty: "No rejected requests." },
   { id: "all", label: "All", params: { status: "all" }, count: "all", empty: "No accounts yet." },
 ];
+
+// Summary cards double as quick filters. `count` is the key in the list's counts.
+const SUMMARY_CARDS = [
+  { view: "pending", label: "Pending requests", count: "pending", warn: true },
+  { view: "active", label: "Active", count: "active" },
+  { view: "expiring", label: "Expiring in 7 days", count: "expiringSoon", warn: true },
+  { view: "suspended", label: "Suspended", count: "suspended" },
+  { view: "expired", label: "Expired", count: "expired" },
+  { view: "rejected", label: "Rejected", count: "rejected" },
+];
+
+const ACTION_ICONS = {
+  approve: CircleCheck,
+  reject: CircleX,
+  suspend: CirclePause,
+  reactivate: CirclePlay,
+  extend: CalendarPlus,
+};
 
 // Which actions make sense for each status (the server enforces the same rules).
 const ROW_ACTIONS = {
@@ -108,151 +128,168 @@ export default function SuperAdminPage() {
   const firstShown = data && data.total > 0 ? (data.page - 1) * data.limit + 1 : 0;
   const lastShown = data ? Math.min(data.page * data.limit, data.total) : 0;
 
+  const viewParam = (id) => (id === "pending" ? null : id);
+  const numberFormat = new Intl.NumberFormat();
+
   return (
-    <>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-lg font-semibold text-text">Accounts</h1>
+        <p className="mt-1 text-sm text-muted">Review access requests and manage account access periods.</p>
+      </header>
+
+      {/* Counts per status; each card filters the table, and clicking the
+          selected card again shows all accounts. */}
+      <section aria-label="Accounts by status" className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        {SUMMARY_CARDS.map((card) => {
+          const selected = view.id === card.view;
+          const count = counts?.[card.count];
+          const highlight = card.warn && count > 0;
+          return (
+            <button
+              key={card.view}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => updateParams({ view: selected ? "all" : viewParam(card.view), page: null })}
+              className={`rounded-card border px-5 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                selected ? "border-accent bg-accentSoft" : "border-border bg-panel shadow-card hover:border-faint"
+              }`}
+            >
+              <span className={`block text-3xl leading-none font-bold tabular-nums ${highlight ? "text-warn" : "text-text"}`}>
+                {count !== undefined ? numberFormat.format(count) : "–"}
+              </span>
+              <span className="mt-2 block text-xs font-semibold text-muted">{card.label}</span>
+            </button>
+          );
+        })}
+      </section>
+
       <OverviewStrip overview={overview} />
 
-      <div className="mt-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-ink">Accounts</h1>
-            <p className="mt-1 text-sm text-ink-muted">Review access requests and manage account access periods.</p>
-          </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search business, name or email"
-              aria-label="Search accounts"
-              maxLength={100}
-              className={`${inputClasses} border-border-strong pl-9`}
-            />
-          </div>
+      <div className="flex flex-col gap-3 rounded-card border border-border bg-panel p-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="relative lg:w-80">
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-faint" aria-hidden="true" />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search business, name or email"
+            aria-label="Search accounts"
+            maxLength={100}
+            className={`${inputClasses} border-border pl-9`}
+          />
         </div>
-
-        <nav aria-label="Account views" className="mt-6 -mb-px flex gap-1 overflow-x-auto border-b border-border">
+        <ChipGroup label="Account views">
           {VIEWS.map((v) => {
-            const selected = v.id === view.id;
             const count = counts?.[v.count];
             return (
-              <button
+              <Chip
                 key={v.id}
-                type="button"
-                aria-current={selected ? "page" : undefined}
-                onClick={() => updateParams({ view: v.id === "pending" ? null : v.id, page: null })}
-                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                  selected ? "border-accent text-ink" : "border-transparent text-ink-muted hover:text-ink"
-                }`}
+                selected={v.id === view.id}
+                onClick={() => updateParams({ view: viewParam(v.id), page: null })}
               >
                 {v.label}
-                {count !== undefined && (
-                  <span
-                    className={`rounded-sm px-1.5 text-xs ${
-                      selected ? "bg-accent-soft text-accentText" : "bg-subtle text-ink-muted"
-                    } ${v.id === "pending" && count > 0 && !selected ? "bg-warning-soft text-warning" : ""}`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
+                {count !== undefined && <span className="tabular-nums opacity-80">{count}</span>}
+              </Chip>
             );
           })}
-        </nav>
-
-        {notice && (
-          <Alert tone="success" className="mt-4">
-            <div className="flex items-start justify-between gap-3">
-              <span>{notice}</span>
-              <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="text-success hover:opacity-70">
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-          </Alert>
-        )}
-
-        <Card className="mt-4 overflow-hidden p-0">
-          {error && (
-            <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-              <Alert className="flex-1">{error.message}</Alert>
-              <Button variant="secondary" onClick={reload}>
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                Retry
-              </Button>
-            </div>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[62rem] text-left text-sm">
-              <thead className="border-b border-border bg-canvas text-xs font-medium text-ink-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Business</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Owner</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Requested</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Starts</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Ends</th>
-                  <th scope="col" className="px-4 py-2.5 text-right font-medium">Days left</th>
-                  <th scope="col" className="px-4 py-2.5 text-right font-medium">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y divide-border ${loading && data ? "opacity-60" : ""}`}>
-                {loading && !data && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-ink-muted">
-                      <span className="inline-flex items-center gap-2">
-                        <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-                        Loading accounts…
-                      </span>
-                    </td>
-                  </tr>
-                )}
-
-                {data && accounts.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-ink-muted">
-                      {q ? `No accounts match "${q}" in this view.` : view.empty}
-                    </td>
-                  </tr>
-                )}
-
-                {accounts.map((account) => (
-                  <AccountRow key={account.id} account={account} onAction={(action) => setDialog({ account, action })} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {data && data.total > 0 && (
-            <div className="flex items-center justify-between gap-4 border-t border-border px-4 py-3 text-sm text-ink-muted">
-              <span>
-                Showing {firstShown}–{lastShown} of {data.total}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={loading || data.page <= 1}
-                  onClick={() => updateParams({ page: data.page - 1 > 1 ? String(data.page - 1) : null })}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={loading || data.page >= data.totalPages}
-                  onClick={() => updateParams({ page: String(data.page + 1) })}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
+        </ChipGroup>
       </div>
+
+      {notice && (
+        <Alert tone="success">
+          <div className="flex items-start justify-between gap-3">
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss"
+              className="rounded-sm text-okText hover:opacity-70 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </Alert>
+      )}
+
+      {error && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Alert className="flex-1">{error.message}</Alert>
+          <Button variant="secondary" onClick={reload}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {loading && !data && (
+        <p className="flex items-center justify-center gap-2 py-10 text-sm text-muted" role="status">
+          <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Loading accounts…
+        </p>
+      )}
+
+      {data && accounts.length === 0 && (
+        <p className="rounded-card border border-dashed border-faint/60 px-5 py-10 text-center text-sm text-muted">
+          {q ? `No accounts match "${q}" in this view.` : view.empty}
+        </p>
+      )}
+
+      {accounts.length > 0 && (
+        <div className={loading ? "opacity-60" : ""} aria-busy={loading || undefined}>
+          {/* Table from 900px; cards below that. */}
+          <Table label="Accounts" className="max-[899px]:hidden">
+            <thead>
+              <tr>
+                <th scope="col">Business</th>
+                <th scope="col">Owner</th>
+                <th scope="col">Status</th>
+                <th scope="col">Requested</th>
+                <th scope="col">Access</th>
+                <th scope="col" className="text-right">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account) => (
+                <AccountRow key={account.id} account={account} onAction={(action) => setDialog({ account, action })} />
+              ))}
+            </tbody>
+          </Table>
+          <ul className="space-y-4 min-[900px]:hidden" aria-label="Accounts">
+            {accounts.map((account) => (
+              <AccountCard key={account.id} account={account} onAction={(action) => setDialog({ account, action })} />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {data && data.total > 0 && (
+        <div className="flex items-center justify-between gap-4 text-sm text-muted">
+          <span>
+            Showing {firstShown}–{lastShown} of {data.total}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loading || data.page <= 1}
+              onClick={() => updateParams({ page: data.page - 1 > 1 ? String(data.page - 1) : null })}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={loading || data.page >= data.totalPages}
+              onClick={() => updateParams({ page: String(data.page + 1) })}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {dialog?.action === "history" && <AccountHistoryPanel account={dialog.account} onClose={() => setDialog(null)} />}
       {dialog?.action === "delete" && (
@@ -267,97 +304,152 @@ export default function SuperAdminPage() {
           onDone={handleDone}
         />
       )}
+    </div>
+  );
+}
+
+const displayName = (account) => account.businessName ?? account.name;
+
+// The one or two main actions as buttons (Approve and Reject for a pending
+// request), everything else in the "More" menu, Delete last and apart.
+function rowActions(account, onAction) {
+  const statusActions = ROW_ACTIONS[account.accessStatus] ?? [];
+  const shown = account.accessStatus === "pending" ? statusActions.slice(0, 2) : statusActions.slice(0, 1);
+  const name = displayName(account);
+  const buttons = shown.map((action, i) => (
+    <Button
+      key={action}
+      size="sm"
+      variant={i === 0 && (action === "approve" || action === "reactivate") ? "primary" : "secondary"}
+      onClick={() => onAction(action)}
+      aria-label={`${ACTION_LABELS[action]} ${account.name}`}
+    >
+      {ACTION_LABELS[action]}
+    </Button>
+  ));
+  const menuItems = [
+    ...statusActions
+      .filter((action) => !shown.includes(action))
+      .map((action) => ({ label: ACTION_LABELS[action], Icon: ACTION_ICONS[action], onSelect: () => onAction(action) })),
+    { label: "History", Icon: History, onSelect: () => onAction("history") },
+    ...(account.owner ? [{ label: "Reset link", Icon: KeyRound, onSelect: () => onAction("reset-link") }] : []),
+    // Kept apart from the routine actions so it isn't clicked by habit.
+    { label: "Delete", Icon: Trash2, danger: true, separated: true, onSelect: () => onAction("delete") },
+  ];
+  const menu = <ActionMenu srLabel={`More actions for ${name}`} items={menuItems} />;
+  return { buttons, menu };
+}
+
+function AccessPeriod({ account }) {
+  const { accessStatus, accessExpiresAt, daysRemaining } = account;
+  const noExpiry = accessStatus === "active" && !accessExpiresAt;
+  return (
+    <div className="text-sm">
+      {account.accessStartsAt || accessExpiresAt || noExpiry ? (
+        <div className="whitespace-nowrap text-text">
+          {account.accessStartsAt ? formatDate(account.accessStartsAt) : "—"}
+          <span className="text-muted"> → </span>
+          {accessExpiresAt ? formatDate(accessExpiresAt) : noExpiry ? "No expiry" : "—"}
+        </div>
+      ) : (
+        <div className="text-muted">—</div>
+      )}
+      {daysRemaining !== null && (
+        <div className={`text-xs tabular-nums ${daysRemaining <= 7 ? "font-semibold text-warn" : "text-muted"}`}>
+          {daysRemaining} {daysRemaining === 1 ? "day" : "days"} left
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BusinessCell({ account }) {
+  return (
+    <>
+      <div className="font-semibold break-words text-text">{displayName(account)}</div>
+      {account.businessName && account.businessName !== account.name && (
+        <div className="text-xs text-muted">{account.name}</div>
+      )}
+      {!account.businessName && <div className="text-xs text-muted">No business set up</div>}
     </>
   );
 }
 
-function AccountRow({ account, onAction }) {
-  const { accessStatus, accessExpiresAt, daysRemaining } = account;
-  const noExpiry = accessStatus === "active" && !accessExpiresAt;
+function OwnerCell({ account }) {
+  return account.owner ? (
+    <>
+      <div className="text-text">{account.owner.name}</div>
+      <div className="text-xs break-all text-muted">{account.owner.email}</div>
+    </>
+  ) : (
+    <span className="text-faint">No owner</span>
+  );
+}
 
+// Pending requests get a warn-coloured stripe on the left edge.
+const PENDING_STRIPE = "[box-shadow:inset_3px_0_0_var(--warn)]";
+
+function AccountRow({ account, onAction }) {
+  const { buttons, menu } = rowActions(account, onAction);
+  const pending = account.accessStatus === "pending";
   return (
-    <tr className="hover:bg-canvas">
-      <td className="px-4 py-3">
-        <div className="font-medium text-ink">{account.businessName ?? account.name}</div>
-        {account.businessName && account.businessName !== account.name && (
-          <div className="text-xs text-ink-muted">{account.name}</div>
-        )}
-        {!account.businessName && <div className="text-xs text-ink-muted">No business set up</div>}
+    <tr className="align-top transition-colors hover:bg-panel2">
+      <td className={`!py-4 ${pending ? PENDING_STRIPE : ""}`}>
+        <BusinessCell account={account} />
       </td>
-      <td className="px-4 py-3">
-        {account.owner ? (
-          <>
-            <div className="text-ink">{account.owner.name}</div>
-            <div className="text-xs text-ink-muted">{account.owner.email}</div>
-          </>
-        ) : (
-          <span className="text-ink-subtle">No owner</span>
-        )}
+      <td className="!py-4">
+        <OwnerCell account={account} />
       </td>
-      <td className="px-4 py-3">
-        <StatusBadge status={accessStatus} />
+      <td className="!py-4">
+        <StatusBadge status={account.accessStatus} />
       </td>
-      <td className="px-4 py-3 whitespace-nowrap text-ink-muted">{formatDate(account.requestedAt)}</td>
-      <td className="px-4 py-3 whitespace-nowrap text-ink-muted">
-        {account.accessStartsAt ? formatDate(account.accessStartsAt) : "—"}
+      <td className="!py-4 whitespace-nowrap text-muted">{formatDate(account.requestedAt)}</td>
+      <td className="!py-4">
+        <AccessPeriod account={account} />
       </td>
-      <td className="px-4 py-3 whitespace-nowrap text-ink-muted">
-        {accessExpiresAt ? formatDate(accessExpiresAt) : noExpiry ? "No expiry" : "—"}
-      </td>
-      <td
-        className={`px-4 py-3 text-right whitespace-nowrap tabular-nums ${
-          daysRemaining !== null && daysRemaining <= 7 ? "font-medium text-warning" : "text-ink-muted"
-        }`}
-      >
-        {daysRemaining !== null ? daysRemaining : "—"}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex justify-end gap-1.5">
-          {(ROW_ACTIONS[accessStatus] ?? []).map((action, i) => (
-            <Button
-              key={action}
-              size="sm"
-              variant={i === 0 && (action === "approve" || action === "reactivate") ? "primary" : "secondary"}
-              onClick={() => onAction(action)}
-              aria-label={`${ACTION_LABELS[action]} ${account.name}`}
-            >
-              {ACTION_LABELS[action]}
-            </Button>
-          ))}
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onAction("history")}
-            aria-label={`History of ${account.businessName ?? account.name}`}
-          >
-            <History className="h-3.5 w-3.5" aria-hidden="true" />
-            History
-          </Button>
-          {account.owner && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => onAction("reset-link")}
-              aria-label={`Create a password reset link for ${account.businessName ?? account.name}`}
-            >
-              <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-              Reset link
-            </Button>
-          )}
-          {/* Kept apart from the routine actions so it isn't clicked by habit. */}
-          <span className="ml-1.5 border-l border-border pl-1.5">
-            <Button
-              size="sm"
-              variant="dangerOutline"
-              onClick={() => onAction("delete")}
-              aria-label={`Delete ${account.businessName ?? account.name} permanently`}
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-              Delete
-            </Button>
-          </span>
+      <td className="!py-4">
+        <div className="flex items-center justify-end gap-2">
+          {buttons}
+          {menu}
         </div>
       </td>
     </tr>
+  );
+}
+
+function AccountCard({ account, onAction }) {
+  const { buttons, menu } = rowActions(account, onAction);
+  const pending = account.accessStatus === "pending";
+  return (
+    <li className={`rounded-card border border-border bg-panel p-5 shadow-card ${pending ? "border-l-4 border-l-warn" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <BusinessCell account={account} />
+        </div>
+        <StatusBadge status={account.accessStatus} />
+      </div>
+      <dl className="mt-4 grid gap-3 text-sm min-[420px]:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted">Owner</dt>
+          <dd className="mt-0.5">
+            <OwnerCell account={account} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted">Requested</dt>
+          <dd className="mt-0.5 text-text">{formatDate(account.requestedAt)}</dd>
+        </div>
+        <div className="min-[420px]:col-span-2">
+          <dt className="text-xs text-muted">Access</dt>
+          <dd className="mt-0.5">
+            <AccessPeriod account={account} />
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        {buttons}
+        <span className="ml-auto">{menu}</span>
+      </div>
+    </li>
   );
 }

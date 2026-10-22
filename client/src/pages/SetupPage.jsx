@@ -48,7 +48,7 @@ export default function SetupPage() {
           type="button"
           onClick={logout}
           disabled={loggingOut}
-          className="font-medium text-ink-muted hover:text-ink disabled:opacity-50"
+          className="font-medium text-muted hover:text-text disabled:opacity-50"
         >
           {loggingOut ? "Logging out…" : "Log out"}
         </button>
@@ -78,10 +78,10 @@ export default function SetupPage() {
           {...bind("googleReviewUrl")}
         />
 
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" loading={submitting} className="h-12 w-full text-sm">
           {submitting ? "Creating…" : "Create business"}
         </Button>
-        <p className="text-xs text-ink-muted">
+        <p className="text-xs text-muted">
           Your public feedback link is created from the business name and won't change later, even if you rename it.
         </p>
       </form>

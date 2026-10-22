@@ -40,21 +40,21 @@ export default function AccountHistoryPanel({ account, onClose }) {
         e.preventDefault();
         onClose();
       }}
-      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-lg border-l border-border bg-surface p-0 text-ink shadow-sm backdrop:bg-scrim"
+      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-lg border-l border-border bg-panel p-0 text-text shadow-sm backdrop:bg-scrim"
     >
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-base font-semibold text-ink">
+            <h2 id={titleId} className="text-base font-semibold text-text">
               Account history
             </h2>
-            <p className="mt-0.5 truncate text-sm text-ink-muted">{account.businessName ?? account.name}</p>
+            <p className="mt-0.5 truncate text-sm text-muted">{account.businessName ?? account.name}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-sm p-1 text-ink-muted hover:bg-subtle hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm p-1 text-muted hover:bg-panel2 hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -62,7 +62,7 @@ export default function AccountHistoryPanel({ account, onClose }) {
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading && !data && (
-            <p className="flex items-center gap-2 py-6 text-sm text-ink-muted" role="status">
+            <p className="flex items-center gap-2 py-6 text-sm text-muted" role="status">
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
               Loading history…
             </p>
@@ -82,22 +82,22 @@ export default function AccountHistoryPanel({ account, onClose }) {
 
           {data && (
             <>
-              <h3 className="text-sm font-semibold text-ink">Status changes</h3>
+              <h3 className="text-sm font-semibold text-text">Status changes</h3>
               {data.accessHistory.length === 0 ? (
-                <p className="mt-2 text-sm text-ink-muted">No status changes recorded.</p>
+                <p className="mt-2 text-sm text-muted">No status changes recorded.</p>
               ) : (
                 <ol className="mt-3 space-y-4 border-l border-border pl-4">
                   {data.accessHistory.map((h, i) => (
                     <li key={`${h.at}-${i}`} className="text-sm">
-                      <p className="text-ink">
+                      <p className="text-text">
                         <span className="font-medium">{HISTORY_ACTION_LABELS[h.action] ?? h.action}</span>
-                        <span className="text-ink-muted"> · {statusChange(h.fromStatus, h.toStatus)}</span>
+                        <span className="text-muted"> · {statusChange(h.fromStatus, h.toStatus)}</span>
                       </p>
-                      {SETS_PERIOD.includes(h.action) && <p className="text-xs text-ink-muted">{accessUntil(h.accessExpiresAt)}</p>}
+                      {SETS_PERIOD.includes(h.action) && <p className="text-xs text-muted">{accessUntil(h.accessExpiresAt)}</p>}
                       {h.reason && (
-                        <p className="mt-1 rounded-md bg-subtle px-2.5 py-1.5 whitespace-pre-wrap break-words text-ink">{h.reason}</p>
+                        <p className="mt-1 rounded-md bg-panel2 px-2.5 py-1.5 whitespace-pre-wrap break-words text-text">{h.reason}</p>
                       )}
-                      <p className="mt-1 text-xs text-ink-muted">
+                      <p className="mt-1 text-xs text-muted">
                         {h.by ? h.by.name : "System"} · {when(h.at)}
                       </p>
                     </li>
@@ -105,20 +105,20 @@ export default function AccountHistoryPanel({ account, onClose }) {
                 </ol>
               )}
 
-              <h3 className="mt-6 text-sm font-semibold text-ink">Other activity</h3>
+              <h3 className="mt-6 text-sm font-semibold text-text">Other activity</h3>
               {otherActivity.length === 0 ? (
-                <p className="mt-2 text-sm text-ink-muted">Nothing else recorded.</p>
+                <p className="mt-2 text-sm text-muted">Nothing else recorded.</p>
               ) : (
                 <ul className="mt-3 space-y-3">
                   {otherActivity.map((e) => (
                     <li key={e.id} className="text-sm">
-                      <p className="font-medium text-ink">{auditActionLabel(e.action)}</p>
+                      <p className="font-medium text-text">{auditActionLabel(e.action)}</p>
                       {describeAuditEntry(e).map((line) => (
-                        <p key={line} className="text-xs text-ink-muted">
+                        <p key={line} className="text-xs text-muted">
                           {line}
                         </p>
                       ))}
-                      <p className="mt-0.5 text-xs text-ink-muted">
+                      <p className="mt-0.5 text-xs text-muted">
                         {e.actor?.name ?? "Unknown"} · {when(e.createdAt)}
                       </p>
                     </li>
@@ -129,7 +129,7 @@ export default function AccountHistoryPanel({ account, onClose }) {
           )}
         </div>
 
-        <div className="border-t border-border bg-canvas px-5 py-3 text-sm">
+        <div className="border-t border-border bg-bg px-5 py-3 text-sm">
           <Link to={`/super-admin/audit-logs?target=${account.id}`} className="font-medium text-accentText hover:underline">
             View in the audit log
           </Link>

@@ -58,14 +58,14 @@ export default function SignupPage() {
           {...bind("password")}
         />
 
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" loading={submitting} className="h-12 w-full text-sm">
           {submitting ? "Sending request…" : "Request access"}
         </Button>
 
-        <p className="text-xs text-ink-muted">
+        <p className="text-xs text-muted">
           New accounts are reviewed by the VoiceLoop team before the dashboard becomes available.
         </p>
-        <p className="text-xs text-ink-muted">
+        <p className="text-xs text-muted">
           By requesting access you agree to the{" "}
           <Link to="/terms" className="font-medium text-accentText hover:underline">
             Terms

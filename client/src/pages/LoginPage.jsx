@@ -65,7 +65,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" loading={submitting} className="h-12 w-full text-sm">
           {submitting ? "Logging in…" : "Log in"}
         </Button>
       </form>

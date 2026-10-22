@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { CircleAlert } from "lucide-react";
 import Dialog, { DialogFooter } from "../ui/Dialog.jsx";
 import Button from "../ui/Button.jsx";
 import Alert from "../ui/Alert.jsx";
@@ -141,7 +142,7 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
     <Dialog title={meta.title} busy={submitting} onClose={onClose}>
       <form onSubmit={onSubmit} noValidate>
         <div className="space-y-4 px-6 pt-4">
-          <dl className="divide-y divide-border rounded-md border border-border text-sm">
+          <dl className="divide-y divide-border rounded-control border border-border bg-panel2 text-sm">
             <Row label="Business" value={account.name} />
             <Row label="Owner" value={account.owner ? `${account.owner.name} · ${account.owner.email}` : "—"} />
             <Row label="Status" value={<StatusBadge status={account.accessStatus} />} />
@@ -150,15 +151,15 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
 
           {usesTerm && (
             <fieldset disabled={submitting}>
-              <legend className="text-sm font-medium text-ink">
+              <legend className="text-sm font-semibold text-text">
                 {action === "extend" ? "Extend by" : "Access period"}
               </legend>
               <div className="mt-2 space-y-1.5">
                 {options.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors ${
-                      choice === option.value ? "border-accent bg-accent-soft text-ink" : "border-border hover:bg-subtle"
+                    className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-control border px-3 py-2 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent ${
+                      choice === option.value ? "border-accent bg-accentSoft text-text" : "border-border hover:bg-panel2"
                     }`}
                   >
                     <input
@@ -176,7 +177,7 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
 
               {choice === "custom" && (
                 <div className="mt-3">
-                  <label htmlFor={dateId} className="block text-sm font-medium text-ink">
+                  <label htmlFor={dateId} className="block text-sm font-semibold text-text">
                     End date
                   </label>
                   <input
@@ -191,24 +192,29 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
               )}
 
               {!term.error && (
-                <p className="mt-3 text-sm text-ink-muted">
+                <p className="mt-3 text-sm text-muted">
                   {term.end ? (
                     <>
-                      Access will end on <strong className="font-medium text-ink">{formatDate(term.end)}</strong>.
+                      Access will end on <strong className="font-medium text-text">{formatDate(term.end)}</strong>.
                     </>
                   ) : (
                     "Access will have no end date."
                   )}
                 </p>
               )}
-              {attempted && term.error && <p className="mt-2 text-xs text-danger">{term.error}</p>}
+              {attempted && term.error && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-danger">
+                  <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span>{term.error}</span>
+                </p>
+              )}
             </fieldset>
           )}
 
           {usesReason && (
             <div>
-              <label htmlFor={reasonId} className="block text-sm font-medium text-ink">
-                Reason {!reasonRequired && <span className="font-normal text-ink-muted">(optional)</span>}
+              <label htmlFor={reasonId} className="block text-sm font-semibold text-text">
+                Reason {!reasonRequired && <span className="font-normal text-muted">(optional)</span>}
               </label>
               <textarea
                 id={reasonId}
@@ -220,7 +226,7 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
                 aria-invalid={attempted && reasonError ? true : undefined}
                 className={`${inputClasses} mt-1.5 resize-y ${attempted && reasonError ? "border-danger" : "border-border-strong"}`}
               />
-              <p className={`mt-1.5 text-xs ${attempted && reasonError ? "text-danger" : "text-ink-muted"}`}>
+              <p className={`mt-1.5 text-xs ${attempted && reasonError ? "text-danger" : "text-muted"}`}>
                 {attempted && reasonError
                   ? reasonError
                   : "Recorded in the account history and audit log. Not shown to the account owner."}
@@ -229,7 +235,7 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
           )}
 
           {action === "suspend" && (
-            <p className="text-sm text-ink-muted">The owner loses access to the dashboard on their next request.</p>
+            <p className="text-sm text-muted">The owner loses access to the dashboard on their next request.</p>
           )}
 
           {error && <Alert>{error}</Alert>}
@@ -251,8 +257,8 @@ export default function AccountActionDialog({ account, action, onClose, onDone }
 function Row({ label, value }) {
   return (
     <div className="flex items-center justify-between gap-4 px-3 py-2">
-      <dt className="text-ink-muted">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium text-ink">{value}</dd>
+      <dt className="text-muted">{label}</dt>
+      <dd className="min-w-0 truncate text-right font-medium text-text">{value}</dd>
     </div>
   );
 }

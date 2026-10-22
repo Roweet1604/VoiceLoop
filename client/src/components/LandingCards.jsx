@@ -6,7 +6,9 @@ import { Globe, LockKeyhole } from "lucide-react";
 // review, high-contrast text colour for private feedback).
 //
 // `preview` renders the same layout without links or buttons, for Settings.
-export default function LandingCards({ wording, reviewUrl, onChooseFeedback, preview = false }) {
+// `compact` (previews only) uses tighter spacing, for the landing page's
+// small phone illustration.
+export default function LandingCards({ wording, reviewUrl, onChooseFeedback, preview = false, compact = false }) {
   const reviewBody = (
     <CardBody
       Icon={Globe}
@@ -14,6 +16,7 @@ export default function LandingCards({ wording, reviewUrl, onChooseFeedback, pre
       text={wording.reviewCardText}
       action={wording.reviewCardButton}
       actionClasses="bg-accent text-onAccent"
+      compact={compact}
     />
   );
   const feedbackBody = (
@@ -23,14 +26,15 @@ export default function LandingCards({ wording, reviewUrl, onChooseFeedback, pre
       text={wording.feedbackCardText}
       action={wording.feedbackCardButton}
       actionClasses="bg-text text-bg"
+      compact={compact}
     />
   );
 
   if (preview) {
     return (
-      <div className="grid gap-4">
-        <div className={CARD_CLASSES}>{reviewBody}</div>
-        <div className={CARD_CLASSES}>{feedbackBody}</div>
+      <div className={`grid ${compact ? "gap-3" : "gap-4"}`}>
+        <div className={compact ? COMPACT_CARD_CLASSES : CARD_CLASSES}>{reviewBody}</div>
+        <div className={compact ? COMPACT_CARD_CLASSES : CARD_CLASSES}>{feedbackBody}</div>
       </div>
     );
   }
@@ -53,20 +57,27 @@ export default function LandingCards({ wording, reviewUrl, onChooseFeedback, pre
 }
 
 const CARD_CLASSES = "group flex w-full flex-col rounded-[20px] border border-border bg-panel p-5 text-text shadow-card sm:p-6";
+const COMPACT_CARD_CLASSES = "flex w-full flex-col rounded-[16px] border border-border bg-panel p-4 text-text";
 const INTERACTIVE =
   "transition-colors hover:border-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
-function CardBody({ Icon, title, text, action, actionClasses }) {
+function CardBody({ Icon, title, text, action, actionClasses, compact }) {
   return (
     <>
-      <span className="flex h-10 w-10 items-center justify-center rounded-control bg-panel2 text-muted">
-        <Icon className="h-5 w-5" aria-hidden="true" />
+      <span
+        className={`flex items-center justify-center rounded-control bg-panel2 text-muted ${compact ? "h-8 w-8" : "h-10 w-10"}`}
+      >
+        <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} aria-hidden="true" />
       </span>
-      <span className="mt-4 block text-lg font-semibold break-words text-text">{title}</span>
+      <span className={`block font-semibold break-words text-text ${compact ? "mt-2.5 text-base" : "mt-4 text-lg"}`}>
+        {title}
+      </span>
       <span className="mt-1 block flex-1 text-sm break-words text-muted">{text}</span>
       {/* Looks like a button; the whole card is the control. */}
       <span
-        className={`mt-5 flex h-12 w-full items-center justify-center rounded-control px-4 text-[15px] font-semibold transition-opacity group-hover:opacity-90 ${actionClasses}`}
+        className={`flex w-full items-center justify-center rounded-control px-4 font-semibold transition-opacity group-hover:opacity-90 ${
+          compact ? "mt-3 h-10 text-sm" : "mt-5 h-12 text-[15px]"
+        } ${actionClasses}`}
       >
         {action}
       </span>

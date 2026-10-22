@@ -14,7 +14,7 @@ import { formatDate, formatTime } from "../lib/format.js";
 const STATUS_CONTENT = {
   pending: {
     Icon: Hourglass,
-    tone: "bg-warning-soft text-warning",
+    tone: "bg-warnSoft text-warn",
     label: "Pending review",
     title: "Waiting for approval",
     body: (business) =>
@@ -22,7 +22,7 @@ const STATUS_CONTENT = {
   },
   rejected: {
     Icon: Ban,
-    tone: "bg-danger-soft text-danger",
+    tone: "bg-dangerSoft text-danger",
     label: "Not approved",
     title: "Access request not approved",
     body: (business) =>
@@ -30,7 +30,7 @@ const STATUS_CONTENT = {
   },
   suspended: {
     Icon: ShieldAlert,
-    tone: "bg-danger-soft text-danger",
+    tone: "bg-dangerSoft text-danger",
     label: "Suspended",
     title: "Account suspended",
     body: (business) =>
@@ -38,7 +38,7 @@ const STATUS_CONTENT = {
   },
   expired: {
     Icon: CalendarX,
-    tone: "bg-subtle text-ink-muted",
+    tone: "bg-panel2 text-muted",
     label: "Expired",
     title: "Access period ended",
     body: (business, expiresAt) =>
@@ -48,7 +48,7 @@ const STATUS_CONTENT = {
 
 const NO_ORGANIZATION = {
   Icon: CircleAlert,
-  tone: "bg-danger-soft text-danger",
+  tone: "bg-dangerSoft text-danger",
   label: "Unavailable",
   title: "Account not set up",
   body: () => "This account isn't linked to a business. Contact the VoiceLoop team for help.",
@@ -92,7 +92,7 @@ export default function WaitingPage() {
 
   return (
     <AuthLayout title={content.title}>
-      <div className="space-y-4">
+      <div className="space-y-5">
         {location.state?.justRegistered && organization?.accessStatus === "pending" && (
           <Alert tone="success">Your account has been created.</Alert>
         )}
@@ -104,35 +104,35 @@ export default function WaitingPage() {
           <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${content.tone}`}>{content.label}</span>
         </div>
 
-        <p className="text-sm text-ink-muted">{content.body(business, organization?.accessExpiresAt)}</p>
+        <p className="text-sm text-muted">{content.body(business, organization?.accessExpiresAt)}</p>
 
         <dl className="divide-y divide-border rounded-md border border-border text-sm">
           {organization && (
             <div className="flex justify-between gap-4 px-3 py-2">
-              <dt className="text-ink-muted">Business</dt>
-              <dd className="truncate font-medium text-ink">{organization.name}</dd>
+              <dt className="text-muted">Business</dt>
+              <dd className="truncate font-medium text-text">{organization.name}</dd>
             </div>
           )}
           <div className="flex justify-between gap-4 px-3 py-2">
-            <dt className="text-ink-muted">Email</dt>
-            <dd className="truncate font-medium text-ink">{user.email}</dd>
+            <dt className="text-muted">Email</dt>
+            <dd className="truncate font-medium text-text">{user.email}</dd>
           </div>
         </dl>
 
         {checkError && <Alert>{checkError}</Alert>}
         {logoutError && <Alert>{logoutError}</Alert>}
         {lastChecked && !checkError && (
-          <p className="text-xs text-ink-muted" role="status">
+          <p className="text-xs text-muted" role="status">
             Status checked at {formatTime(lastChecked)}. No change yet.
           </p>
         )}
 
         <div className="flex gap-2">
-          <Button onClick={checkAgain} loading={checking} className="flex-1">
+          <Button onClick={checkAgain} loading={checking} className="h-12 flex-1 text-sm">
             {!checking && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
             Check status
           </Button>
-          <Button variant="secondary" onClick={logout} loading={loggingOut}>
+          <Button variant="secondary" onClick={logout} loading={loggingOut} className="h-12 text-sm">
             {!loggingOut && <LogOut className="h-4 w-4" aria-hidden="true" />}
             Log out
           </Button>

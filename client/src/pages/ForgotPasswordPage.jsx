@@ -40,12 +40,12 @@ export default function ForgotPasswordPage() {
     return (
       <AuthLayout title="Check your email" footer={backToLogin}>
         <div role="status">
-          <MailCheck className="h-6 w-6 text-success" aria-hidden="true" />
-          <p className="mt-3 text-sm text-ink">
+          <MailCheck className="h-6 w-6 text-okText" aria-hidden="true" />
+          <p className="mt-3 text-sm text-text">
             If an account exists for <span className="font-medium break-all">{sentTo}</span>, we sent a link to reset
             the password.
           </p>
-          <p className="mt-2 text-sm text-ink-muted">
+          <p className="mt-2 text-sm text-muted">
             The link works once, for 30 minutes. If nothing arrives in a few minutes, check your spam folder.
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {formError && <Alert>{formError}</Alert>}
         <TextField label="Email" type="email" autoComplete="email" inputMode="email" {...bind("email")} />
-        <Button type="submit" loading={submitting} className="w-full">
+        <Button type="submit" loading={submitting} className="h-12 w-full text-sm">
           {submitting ? "Sending…" : "Send reset link"}
         </Button>
       </form>
