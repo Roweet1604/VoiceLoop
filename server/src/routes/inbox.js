@@ -11,6 +11,8 @@ import { getStorage, StorageNotFoundError } from "../services/storage/index.js";
 import { ownBusiness } from "../services/ownBusiness.js";
 import { feedbackFilter } from "../services/feedbackFilter.js";
 import { retentionDaysFrom } from "../services/retention.js";
+import { deleteStoredFiles } from "../services/accountDeletion.js";
+import { recordOwnerAction } from "../services/auditLog.js";
 import {
   listFeedbackQuery,
   summaryQuery,
@@ -341,6 +343,30 @@ router.post("/:id/notes", validate({ body: noteBody }), async (req, res) => {
     { new: true, runValidators: true }
   );
   res.status(201).json({ feedback: await serializeDetail(updated, business) });
+});
+
+// Permanent deletion of one item, with its notes, history and recording.
+// The record and its audit entry go in one transaction; the audio file is
+// removed after the commit, and a failure there is logged, never returned.
+router.delete("/:id", async (req, res) => {
+  const business = await ownBusiness(req);
+  const feedback = await ownFeedback(business, req.params.id);
+
+  await mongoose.connection.transaction(async (session) => {
+    const { deletedCount } = await Feedback.deleteOne({ _id: feedback._id, businessId: business._id }, { session });
+    // Deleted meanwhile (another tab, or retention): same answer as unknown.
+    if (deletedCount === 0) throw AppError.notFound("Feedback not found");
+    // Category and type only: no customer text, name or email.
+    await recordOwnerAction({
+      user: req.user,
+      action: "feedback.deleted",
+      context: { category: feedback.category, submissionType: feedback.submissionType },
+      session,
+    });
+  });
+
+  if (feedback.audioKey) await deleteStoredFiles([feedback.audioKey], `feedback ${feedback._id} deleted`);
+  res.status(204).end();
 });
 
 export default router;

@@ -37,8 +37,8 @@ VoiceLoop/
 ## How the client and server communicate
 
 - In development the client runs on the Vite dev server (`http://localhost:5173`) and the API runs on Express (`http://localhost:5000`).
-- The client calls the API directly with `fetch` using `VITE_API_URL` as the base URL. There is no Vite proxy, so this is a cross-origin request.
-- The server allows that origin through CORS, restricted to the single origin in `CLIENT_URL`, with credentials enabled. Requests from any other browser origin are refused by the browser.
+- The client calls relative `/api/...` paths. The Vite dev server proxies `/api` to `API_PROXY_TARGET` (default `http://localhost:5000`), so in development the browser sees one origin and the session cookie is first-party.
+- If a deployed client must call an API on another origin, set `VITE_API_URL` at build time. The server allows exactly one browser origin through CORS (`CLIENT_URL`), with credentials enabled.
 - The session lives in an httpOnly cookie, so client requests to authenticated routes must use `fetch(url, { credentials: "include" })`.
 - All API routes live under `/api` and exchange JSON. Request bodies are limited to 100 kB.
 
@@ -144,7 +144,7 @@ Every access change writes, in one MongoDB transaction:
 - an `accessHistory` entry on the organization: `action`, `fromStatus`, `toStatus`, `accessExpiresAt`, `by` (admin user id), `reason`, `at`;
 - an `AuditLog` document: `actor`, `actorEmail`, `action` (e.g. `access.approve`), `targetType`, `targetId`, `createdAt`, and a `context` with statuses, dates and the reason. No password data is ever written there.
 
-Owners' business changes are recorded too, in the same transaction as the change: `business.created` (context `businessName`) and `business.updated` (context `businessName` and `fields`, the names of the settings that actually changed, never their values; saving identical values records nothing). These target the owner's Organization, not the Business, so account deletion removes them with the rest of the organization's trail, and they store no `actorEmail`.
+Owners' business changes are recorded too, in the same transaction as the change: `business.created` (context `businessName`) and `business.updated` (context `businessName` and `fields`, the names of the settings that actually changed, never their values; saving identical values records nothing). Deleting one feedback item records `feedback.deleted` with context `category` and `submissionType` only (no text, name or email). These target the owner's Organization, not the Business, so account deletion removes them with the rest of the organization's trail, and they store no `actorEmail`.
 
 **Reading the trail** (`services/auditLog.js`). Responses never pass stored entries through: each is `{ id, action, createdAt, actor { id, name, role }, target { type, id, name, exists }, context }`, where the actor's name is looked up (never an email, and `actorEmail` is never returned) and `context` keeps only keys on `SAFE_CONTEXT_KEYS`. The audit-log search `q` matches `action`, `context.organizationName`, `context.businessName` and `context.reason`, escaped so it's always literal. Signups are recorded only in `accessHistory` (`requested`), not as audit entries.
 
@@ -235,6 +235,7 @@ Same guards as `/api/business`. Every query is scoped to the business of the log
 | `PATCH /:id/review` | `reviewStatus`: `new` or `reviewed` | Setting the current value again changes nothing |
 | `PATCH /:id/complaint-status` | `status`: `open`, `in_progress`, `resolved` or `reopen`; `resolutionSummary` (required for `resolved`, ≤1000) | Complaints only (`409 NOT_A_COMPLAINT`). Allowed: open→in progress/resolved, in progress→open/resolved, resolved→reopen (open). Anything else is `409 INVALID_TRANSITION` |
 | `POST /:id/notes` | `text` (1–1000) | `201`, with the note's author and time |
+| `DELETE /:id` | | `204`. Permanently deletes the item (notes and history included) and an audit entry `feedback.deleted` in one transaction, then its recording through `deleteStoredFiles()`; a file that can't be removed is logged, never returned as an error. Another tenant's id is `404` |
 
 - **Search** matches message and transcript text case-insensitively, and the input is escaped, so `$5.00 (` matches literally. It's a scan within one business; fine at this scale, but a text index would be needed for very large inboxes.
 - **History:** review and complaint changes are recorded in `statusHistory` (`field`, `from`, `to`, `by`, `at`, and `resolutionSummary` when resolving).
@@ -373,7 +374,8 @@ Stack traces are never sent to the client. They are logged on the server. When `
 
 | Variable       | Required | Default                 | Purpose |
 |----------------|----------|-------------------------|---------|
-| `VITE_API_URL` | No       | `http://localhost:5000` | Base URL of the API. Vite inlines it at build time, so changing it requires a rebuild. |
+| `VITE_API_URL` | No       | empty (same origin)     | Base URL of the API, only when it is on another origin. Vite inlines it at build time, so changing it requires a rebuild. |
+| `API_PROXY_TARGET` | No   | `http://localhost:5000` | Dev server only: where Vite forwards `/api`. Never reaches the browser. |
 
 Only variables prefixed with `VITE_` reach the browser bundle. Never put secrets in the client env.
 

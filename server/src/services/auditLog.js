@@ -24,6 +24,9 @@ export const SAFE_CONTEXT_KEYS = [
   "feedbackDeleted",
   "audioFilesDeleted",
   "cutoff",
+  // feedback.deleted: enum values only
+  "category",
+  "submissionType",
 ];
 
 // Context fields matched by the audit-log text search (with `action`).

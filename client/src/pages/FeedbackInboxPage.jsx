@@ -123,6 +123,12 @@ export default function FeedbackInboxPage() {
         <ExportCsvButton query={exportQuery} disabled={data?.total === 0} onAccessError={handleAccessError} />
       </div>
 
+      {location.state?.feedbackDeleted && (
+        <Alert tone="success" className="mt-4">
+          The feedback was permanently deleted.
+        </Alert>
+      )}
+
       <div className="mt-6 space-y-3">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-subtle" aria-hidden="true" />

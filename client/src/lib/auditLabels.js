@@ -1,6 +1,7 @@
 // Display text for audit entries and access history. Everything returned is
 // plain text, rendered by React (never as HTML).
 import { formatDate } from "./format.js";
+import { CATEGORY_LABELS } from "./feedbackLabels.js";
 
 export const AUDIT_ACTION_LABELS = {
   "access.approve": "Approved access",
@@ -11,6 +12,7 @@ export const AUDIT_ACTION_LABELS = {
   account_deleted: "Deleted account",
   "business.created": "Created business",
   "business.updated": "Changed business settings",
+  "feedback.deleted": "Deleted feedback",
   "retention.cleanup": "Deleted expired feedback",
 };
 
@@ -68,6 +70,9 @@ export function describeAuditEntry({ action, context }) {
   if (action === "retention.cleanup") {
     lines.push(`${context.feedbackDeleted} item(s), ${context.audioFilesDeleted} recording(s)`);
     if (context.cutoff) lines.push(`Submitted before ${formatDate(context.cutoff)}`);
+  }
+  if (action === "feedback.deleted" && context.category) {
+    lines.push(`${CATEGORY_LABELS[context.category] ?? context.category}, ${context.submissionType === "voice" ? "voice" : "written"}`);
   }
   if (Array.isArray(context.fields) && context.fields.length > 0) {
     lines.push(`Changed ${context.fields.map((f) => FIELD_LABELS[f] ?? f).join(", ")}`);

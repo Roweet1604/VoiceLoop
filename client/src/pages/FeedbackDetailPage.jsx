@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
-import { ArrowLeft, LoaderCircle, Mail } from "lucide-react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { ArrowLeft, LoaderCircle, Mail, Trash2 } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -34,11 +34,13 @@ const COMPLAINT_ACTIONS = {
 export default function FeedbackDetailPage() {
   const { feedbackId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const handleAccessError = useHandleAccessError();
   const [state, setState] = useState({ status: "loading", feedback: null, error: null });
   const [busy, setBusy] = useState(null); // which action is in flight
   const [actionError, setActionError] = useState(null);
   const [resolving, setResolving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [retentionDays, setRetentionDays] = useState(null);
   const backTo = `/app/feedback${location.state?.fromSearch ?? ""}`;
 
@@ -233,8 +235,34 @@ export default function FeedbackDetailPage() {
               </div>
             </Card>
           )}
+
+          <Card className="p-5">
+            <h2 className="text-sm font-semibold text-ink">Delete</h2>
+            <p className="mt-1 text-sm text-ink-muted">Permanently removes this feedback{f.audio ? ", its recording" : ""} and its notes.</p>
+            <Button
+              variant="dangerOutline"
+              size="sm"
+              className="mt-3 w-full"
+              disabled={busy !== null}
+              onClick={() => setDeleting(true)}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Delete feedback
+            </Button>
+          </Card>
         </div>
       </div>
+
+      {deleting && (
+        <DeleteDialog
+          feedbackId={f.id}
+          hasRecording={Boolean(f.audio)}
+          onClose={() => setDeleting(false)}
+          onAccessError={handleAccessError}
+          // Only after the server confirmed the deletion.
+          onDeleted={() => navigate(backTo, { replace: true, state: { feedbackDeleted: true } })}
+        />
+      )}
 
       {resolving && (
         <ResolveDialog
@@ -413,6 +441,50 @@ function ResolveDialog({ onClose, onResolve, error }) {
           </Button>
           <Button type="submit" loading={submitting}>
             Mark resolved
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
+  );
+}
+
+function DeleteDialog({ feedbackId, hasRecording, onClose, onAccessError, onDeleted }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api(`/api/feedback/${encodeURIComponent(feedbackId)}`, { method: "DELETE" });
+      onDeleted();
+    } catch (err) {
+      onAccessError(err);
+      setError(err.message);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog
+      title="Delete this feedback?"
+      description={`This permanently deletes the feedback${hasRecording ? ", its voice recording" : ""}, internal notes and history. This cannot be undone.`}
+      busy={submitting}
+      onClose={onClose}
+    >
+      <form onSubmit={submit} noValidate>
+        {error && (
+          <div className="px-6 pt-4">
+            <Alert>{error}</Alert>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="danger" loading={submitting}>
+            Delete permanently
           </Button>
         </DialogFooter>
       </form>
