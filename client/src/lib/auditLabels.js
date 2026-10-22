@@ -10,6 +10,7 @@ export const AUDIT_ACTION_LABELS = {
   "access.reactivate": "Reactivated",
   "access.extend": "Extended access",
   account_deleted: "Deleted account",
+  reset_link_created: "Created password reset link",
   "business.created": "Created business",
   "business.updated": "Changed business settings",
   "feedback.deleted": "Deleted feedback",

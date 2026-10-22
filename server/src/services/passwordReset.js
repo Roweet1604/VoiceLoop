@@ -7,7 +7,9 @@ import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import mongoose from "mongoose";
 import { User } from "../models/User.js";
+import { Organization } from "../models/Organization.js";
 import { PasswordResetToken } from "../models/PasswordResetToken.js";
+import { AuditLog } from "../models/AuditLog.js";
 import { AppError } from "../utils/AppError.js";
 import { sendEmail } from "./email/index.js";
 
@@ -43,6 +45,58 @@ function resetEmail(link) {
   };
 }
 
+// Creates a new link for a user: 32 random bytes, only their SHA-256 hash
+// stored, valid RESET_TOKEN_TTL_MS. Only the newest link works: older unused
+// ones are retired. The token exists only in the returned link; never log it.
+async function issueResetLink(userId, now, session) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const expiresAt = new Date(now.getTime() + RESET_TOKEN_TTL_MS);
+  await PasswordResetToken.updateMany({ userId, usedAt: null }, { $set: { usedAt: now } }, { session });
+  await PasswordResetToken.create([{ userId, tokenHash: hashToken(token), expiresAt }], { session });
+
+  const clientUrl = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
+  return { token, link: `${clientUrl}/reset-password?token=${token}`, expiresAt };
+}
+
+/**
+ * A reset link for an account's owner, created by the Super Admin to hand
+ * over by other means. Nothing is emailed. The link is returned only here;
+ * the audit entry ("reset_link_created") holds no token and no email.
+ * Accounts that include a Super Admin can't be targeted.
+ */
+export async function createResetLinkForAccount({ organizationId, actor }) {
+  if (!mongoose.isValidObjectId(organizationId)) throw AppError.notFound("Account not found");
+
+  let result;
+  await mongoose.connection.transaction(async (session) => {
+    const now = new Date();
+    const organization = await Organization.findById(organizationId).session(session);
+    if (!organization) throw AppError.notFound("Account not found");
+    if (await User.exists({ organizationId: organization._id, role: "superadmin" }).session(session)) {
+      throw AppError.forbidden("Reset links can't be created for accounts that include a Super Admin");
+    }
+    const owner = await User.findOne({ organizationId: organization._id, role: "owner" }).sort({ createdAt: 1 }).session(session);
+    if (!owner) throw AppError.notFound("This account has no owner");
+
+    const { link, expiresAt } = await issueResetLink(owner._id, now, session);
+    await AuditLog.create(
+      [
+        {
+          actor: actor._id,
+          action: "reset_link_created",
+          targetType: "Organization",
+          targetId: organization._id,
+          context: { organizationName: organization.name },
+          createdAt: now,
+        },
+      ],
+      { session }
+    );
+    result = { link, expiresAt };
+  });
+  return result;
+}
+
 // Work still running after its response was sent (tests wait for it).
 const pending = new Set();
 export async function waitForPendingResets() {
@@ -60,13 +114,7 @@ async function processRequest(email) {
     return;
   }
 
-  const token = crypto.randomBytes(32).toString("base64url");
-  // Only the newest link works: older unused ones are retired.
-  await PasswordResetToken.updateMany({ userId: user._id, usedAt: null }, { $set: { usedAt: now } });
-  await PasswordResetToken.create({ userId: user._id, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + RESET_TOKEN_TTL_MS) });
-
-  const clientUrl = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/+$/, "");
-  const link = `${clientUrl}/reset-password?token=${token}`;
+  const { token, link } = await issueResetLink(user._id, now);
   await sendEmail({ to: user.email, ...resetEmail(link), idempotencyKey: `password-reset-${hashToken(token)}` });
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Search, LoaderCircle, RefreshCw, X, Trash2, History } from "lucide-react";
+import { Search, LoaderCircle, RefreshCw, X, Trash2, History, KeyRound } from "lucide-react";
 import Card from "../components/ui/Card.jsx";
 import Button from "../components/ui/Button.jsx";
 import Alert from "../components/ui/Alert.jsx";
@@ -9,6 +9,7 @@ import StatusBadge from "../components/super-admin/StatusBadge.jsx";
 import AccountActionDialog, { ACTION_LABELS } from "../components/super-admin/AccountActionDialog.jsx";
 import DeleteAccountDialog, { confirmationName } from "../components/super-admin/DeleteAccountDialog.jsx";
 import AccountHistoryPanel from "../components/super-admin/AccountHistoryPanel.jsx";
+import ResetLinkDialog from "../components/super-admin/ResetLinkDialog.jsx";
 import OverviewStrip from "../components/super-admin/OverviewStrip.jsx";
 import { useAccounts } from "../hooks/useAccounts.js";
 import { useSuperAdminData } from "../hooks/useSuperAdminData.js";
@@ -257,7 +258,8 @@ export default function SuperAdminPage() {
       {dialog?.action === "delete" && (
         <DeleteAccountDialog account={dialog.account} onClose={() => setDialog(null)} onDeleted={handleDeleted} />
       )}
-      {dialog && dialog.action !== "delete" && dialog.action !== "history" && (
+      {dialog?.action === "reset-link" && <ResetLinkDialog account={dialog.account} onClose={() => setDialog(null)} />}
+      {dialog && !["delete", "history", "reset-link"].includes(dialog.action) && (
         <AccountActionDialog
           account={dialog.account}
           action={dialog.action}
@@ -331,6 +333,17 @@ function AccountRow({ account, onAction }) {
             <History className="h-3.5 w-3.5" aria-hidden="true" />
             History
           </Button>
+          {account.owner && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onAction("reset-link")}
+              aria-label={`Create a password reset link for ${account.businessName ?? account.name}`}
+            >
+              <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+              Reset link
+            </Button>
+          )}
           {/* Kept apart from the routine actions so it isn't clicked by habit. */}
           <span className="ml-1.5 border-l border-border pl-1.5">
             <Button

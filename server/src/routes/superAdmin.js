@@ -10,6 +10,8 @@ import { AppError } from "../utils/AppError.js";
 import { escapeRegex } from "../utils/regex.js";
 import { changeAccess, listAccounts, accessCounts } from "../services/accountAccess.js";
 import { deleteOrganizationAccount } from "../services/accountDeletion.js";
+import { createResetLinkForAccount } from "../services/passwordReset.js";
+import { createLimiter } from "../middleware/rateLimit.js";
 import { serializeAuditEntries, userNames, personFrom, SEARCHABLE_CONTEXT_KEYS } from "../services/auditLog.js";
 import {
   auditLogQuery,
@@ -23,6 +25,14 @@ import {
 } from "../validators/superAdmin.js";
 
 const router = Router();
+
+// Per admin (the routes below run after requireAuth), not per IP.
+export const RESET_LINKS_PER_ADMIN_PER_HOUR = 10;
+const resetLinkLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  limit: RESET_LINKS_PER_ADMIN_PER_HOUR,
+  keyGenerator: (req) => `admin-${req.user._id}`,
+});
 
 // Every route below is Super Admin only. Owners get 403, logged-out callers 401.
 router.use(requireAuth, requireSuperAdmin);
@@ -146,6 +156,14 @@ router.post("/accounts/:id/delete", validate({ body: deleteAccountBody }), async
     actor: req.user,
   });
   res.json({ deleted: result });
+});
+
+// A password reset link for the account's owner, shown to the admin once and
+// never emailed. See createResetLinkForAccount() in services/passwordReset.js.
+router.post("/accounts/:id/reset-link", resetLinkLimiter, async (req, res) => {
+  const { link, expiresAt } = await createResetLinkForAccount({ organizationId: req.params.id, actor: req.user });
+  res.set("Cache-Control", "no-store");
+  res.status(201).json({ link, expiresAt });
 });
 
 for (const [action, validator] of Object.entries(ACTION_VALIDATORS)) {

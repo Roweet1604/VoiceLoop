@@ -130,6 +130,7 @@ All routes under `/api/super-admin` run `requireAuth` then `requireSuperAdmin`: 
 | `POST /accounts/:id/extend` | `{ days: 1–3650 }` or `{ endDate }` | active (with an end date), expired | active; days are added to the current end date, or to today if it has passed; a new `endDate` must be later than the current one |
 | `GET /accounts/:id/history` | | any | `{ account { id, name }, accessHistory, auditEntries }`, newest first; `404` for unknown, malformed or deleted ids |
 | `GET /audit-logs` | query: `page`, `limit` (≤100, default 50), `action`, `targetId`, `from`, `to` (ISO), `q` (≤100) | | `{ entries, page, limit, total, totalPages, actions }`, newest first; `actions` lists every recorded action for the filter |
+| `POST /accounts/:id/reset-link` | | any (owner required) | `201 { link, expiresAt }`: a 30-minute, single-use password reset link for the account's owner, returned only in this response and never emailed or logged. Older unused links stop working. Audit entry `reset_link_created` (actor, organization; no token or email). `404` without an owner, `403` for accounts containing a Super Admin, `429` after 10 per admin per hour |
 | `GET /overview` | | | `{ accounts { pending, active, suspended, rejected, expired, expiringSoon }, businesses, feedback, voiceRecordings, audioBytes }` |
 
 - `endDate` is an ISO 8601 timestamp, must be in the future and within 10 years. The admin UI sends the end of the chosen day in the admin's time zone.
