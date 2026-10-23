@@ -135,7 +135,7 @@ function LinkCard({ link, url, filename, onRename, onToggle }) {
     // QR beside the details when the card is wide enough, stacked otherwise.
     <Card className="@container w-full p-5">
       <div className="flex flex-col gap-5 @[24rem]:flex-row">
-        <QrCode url={url} filename={filename} dimmed={!link.isActive} />
+        <QrCode url={url} filename={filename} printTitle={link.name} dimmed={!link.isActive} />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

@@ -98,3 +98,59 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * QR print sheet (components/QrCode.jsx). Hidden on screen; when printing,
+ * everything else on the page is hidden and the sheet prints black on white
+ * on a single A4 page, whatever the app theme.
+ */
+.qr-print-sheet {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    color-scheme: light;
+  }
+
+  body:has(> .qr-print-sheet) > :not(.qr-print-sheet) {
+    display: none !important;
+  }
+
+  .qr-print-sheet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 25mm;
+    text-align: center;
+    color: #000000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .qr-print-sheet img {
+    width: 90mm;
+    height: 90mm;
+    padding: 6mm; /* extra quiet margin on top of the code's own */
+    background: #ffffff;
+  }
+
+  .qr-print-sheet h1 {
+    margin: 8mm 0 0;
+    font-size: 22pt;
+    font-weight: 600;
+  }
+
+  .qr-print-sheet p {
+    margin: 3mm 0 0;
+    font-size: 13pt;
+  }
+}
